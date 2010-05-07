@@ -1,3 +1,5 @@
+import Control.Concurrent
+
 -- Dimensions of the Field
 hight :: Int
 hight = 20
@@ -8,11 +10,6 @@ width = 20
 -- Marker
 mark = '0'
 unmark = '.'
-
--- definition of the structure for the field
-type Pos =(Int, Int)
-type Cel = (Pos, Char)
-type Field =[Cel]
 
 -- The startingposition of the first lifes on the field
 startPos :: [(Int,Int)]
@@ -97,14 +94,6 @@ cCell f ((a,b):xs) = if a < 1 || a > hight
                               then cCell f xs
                               else [gCellC f (a,b)] ++ cCell f xs
 
---wait function
-wait :: Int -> IO()
-wait t = if t > 0 
-            then do return()
-                    wait (t-1)
-            else return ()
-
-
 -- startfunction
 main :: IO()  
 main = mainStart startPos 1
@@ -115,6 +104,6 @@ mainStart :: [(Int,Int)] -> Int -> IO()
 mainStart sl c = do let arr = doField sl 1 1
                     printAll arr c
                     let next = nextStep arr sl
-                    wait(100000)
+                    threadDelay 500000
                     mainStart next (c+1)
 
