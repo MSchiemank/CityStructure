@@ -1,0 +1,28 @@
+--Dimension of the City
+width = 20
+height = 20
+
+-- Structure of the streets (name (x,y) to (x,y) | (x,y) to (x,y))
+-- Note: one pice of a street will be 2 fields (forward, backward)
+-- example 1: a street from (2,1) to (2,5) needs fields (2,1) to (2,5) and (1,5) to (1,1)
+-- example 2: (1,1) to (5,1) needs (1,1) to (5,1) and (5,2) to (1,2)
+Berlinerstraße (2,2) to (2,10) | (3,10) to (3,2)
+Frankfurter_Straße (6,1) to (6,10) | (5,10) to (5,1)
+
+
+-- Using traffic signals to direct the traffic
+-- identifier (x,y) -- [other identifiers]
+S1 (4,1) | [S2,S3,S4]
+S2 (4,4) | [S1,S3,S4]
+S3 (7,4) | [S1,S2,S4]
+S4 (7,1) | [S1,S2,S3]
+
+-- Buildings (Id (x,y)
+B1 (3,1)
+B2 (3,4)
+B3 (8,1)
+B4 (8,4)
+
+
+
+--EOF
