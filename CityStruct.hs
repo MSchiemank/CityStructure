@@ -54,7 +54,8 @@ makeRow (x:xs) | x == '\n' = []
 --parse :: [String] -> [[Cell]]
 {-parse s = do 
              where hight = getHight s
-                   width = getWidth s-}
+                   width = getWidth s
+                   roads = buildSegment s "Roads:"-}
 
 -- returns the width of the city
 getWidth :: [String] -> Int
@@ -71,23 +72,27 @@ getHight (x:xs) = if isInfixOf "hight=" x
                     else getHight xs
 
 --checks the first element of the roadlists
-buildRoad :: [String] -> [((Int, Int), [String])]
-buildRoad [] = []
-buildRoad (x:xs) | isInfixOf "Roads:" x = endRoad xs
-                 | otherwise = buildRoad xs
+buildSegment :: [String] -> String -> [((Int, Int), [String])]
+buildSegment [] s = []
+buildSegment (x:xs) s | isInfixOf s x = endSegment xs s
+                      | otherwise = buildSegment xs s
 
 -- checks the end of the road list
-endRoad :: [String] -> [((Int, Int), [String])]
-endRoad [] = []
-endRoad (x:xs) | isInfixOf "end" x = []
-               | otherwise = generateRoad x ++ endRoad xs
+endSegment:: [String] -> String -> [((Int, Int), [String])]
+endSegment [] s = []
+endSegment (x:xs) s | isInfixOf "end" x = []
+                    | otherwise = if s == "Roads:" 
+                                 then generateRoad x ++ endSegment xs s
+                                 else  if s == "Buildings:"
+                                        then generateBuilding x ++ endSegment xs s
+                                        else endSegment [] s
 
---generateRoad :: [String] -> (Int, Int, [String])
+generateRoad :: String -> [((Int, Int), [String])]
 generateRoad [] = []
 generateRoad x = buildRoadList pos first second
                  where first = getStr x ';'
                        second = getStr (drop ((length first)+1) x) ';'
-                       third = getStr (drop((length first)+(length second)+2) x) ';'
+                       third = drop((length first)+(length second)+2) x
                        pos = createPosTuple (createTupleString third)
                     
 
@@ -111,10 +116,24 @@ createPosTuple (s:xs) = [(read x1 ::Int,read y1 ::Int)] ++ createPosTuple xs
                               y1 = drop (1+(length x1)) s
 
                            
---builds a full list of the roadpieces                        
+--builds a full list of roadpieces                        
 buildRoadList :: [(Int,Int)] -> String -> String -> [((Int, Int), [String])]
 buildRoadList [] _ _ = []
 buildRoadList ((x1,y1):(x2,y2):zs) s1 s2 = [((x,y),s) | x <- [x1..x2], y <- [y1..y2], s <- [[s1]++[s2]]] ++ buildRoadList zs s1 s2
+
+
+--generates the buildinglist
+--buildBuilding :: [String] -> [((Int, Int), [String])]
+generateBuilding s = generateBuildingList pos first second
+                        where first = getStr s ';'
+                              second = getStr (drop ((length first)+1) s) ';'
+                              third = drop ((length first)+(length second)+2) s
+                              pos = createPosTuple (createTupleString third)
+
+--builds the List for the buildings
+generateBuildingList :: [(Int,Int)] -> String -> String -> [((Int,Int),[String])]
+generateBuildingList [] _ _ = []
+generateBuildingList (x:xs) s1 s2 = [(z, s) | z <- [x], s <- [[s1]++[s2]]] ++ generateBuildingList xs s1 s2
 
 {-main :: IO()
 main = run (readFile "city")

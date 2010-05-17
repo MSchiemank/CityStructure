@@ -23,10 +23,10 @@ end
 
 -- Buildings (Id, Name (x,y))
 Buildings:
-B1; Mueller, (3,1)
-B2; Meier, (3,4)
-B3; Schulze, (8,1)
-B4; Schroeder, (8,4)
+B1; Mueller; (3,1)
+B2; Meier; (3,4)
+B3; Schulze; (8,1)
+B4; Schroeder; (8,4)
 end
 
 --Cars (id, (x,y))
