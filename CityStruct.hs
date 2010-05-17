@@ -1,14 +1,14 @@
 import Data.List
 --Datatype setting
 
-data Cell = Road    { ident   :: String,
+data Cell = Road    { ident   :: Integer,
                       name    :: String}
-          | Building{ ident   :: String,
+          | Building{ ident   :: Integer,
                       name    :: String}
-          | Signal  { ident   :: String,
-                      workWith :: String,
-                      against  :: [String]}
-          | Car     { ident   :: String}
+          | Signal  { ident   :: Integer,
+                      workWith :: [Cell],
+                      against  :: [Cell]}
+          | Car     { ident   :: Integer}
      deriving (Eq, Show)
 
 
@@ -55,7 +55,9 @@ makeRow (x:xs) | x == '\n' = []
 {-parse s = do 
              where hight = getHight s
                    width = getWidth s
-                   roads = buildSegment s "Roads:"-}
+                   roads = buildSegment s "Roads:"
+                   buildings = buildSegment s "Buildings:"
+                   signals = buildSegment s "Signals:"-}
 
 -- returns the width of the city
 getWidth :: [String] -> Int
@@ -71,30 +73,82 @@ getHight (x:xs) = if isInfixOf "hight=" x
                     then read (drop (length "hight=") x) :: Int
                     else getHight xs
 
---checks the first element of the roadlists
-buildSegment :: [String] -> String -> [((Int, Int), [String])]
+--checks the first element of the selected lists
+buildSegment :: [String] -> String -> [((Int, Int), Cell)]
 buildSegment [] s = []
 buildSegment (x:xs) s | isInfixOf s x = endSegment xs s
                       | otherwise = buildSegment xs s
 
--- checks the end of the road list
-endSegment:: [String] -> String -> [((Int, Int), [String])]
+-- checks the end of the selected list
+endSegment:: [String] -> String -> [((Int, Int), Cell)]
 endSegment [] s = []
 endSegment (x:xs) s | isInfixOf "end" x = []
                     | otherwise = if s == "Roads:" 
-                                 then generateRoad x ++ endSegment xs s
-                                 else  if s == "Buildings:"
+                                  then generateRoad x ++ endSegment xs s
+                                  else if s == "Buildings:"
                                         then generateBuilding x ++ endSegment xs s
-                                        else endSegment [] s
+                                        else []
 
-generateRoad :: String -> [((Int, Int), [String])]
+
+--divide the String into 3 pices
+generateRoad :: String -> [((Int, Int), Cell)]
 generateRoad [] = []
-generateRoad x = buildRoadList pos first second
+generateRoad x = fillRoadCell (buildRoadList pos firstI second)
                  where first = getStr x ';'
-                       second = getStr (drop ((length first)+1) x) ';'
-                       third = drop((length first)+(length second)+2) x
+                       l1 = (length first) + 1
+                       firstI = read first :: Integer
+                       second = getStr (drop l1 x) ';'
+                       l2 = (length second) + 1 + l1
+                       third = drop l2 x
                        pos = createPosTuple (createTupleString third)
                     
+                           
+--builds a full list of roadpieces                        
+buildRoadList :: [(Int,Int)] -> Integer -> String -> [((Int, Int), Integer,String)]
+buildRoadList [] _ _ = []
+buildRoadList ((x1,y1):(x2,y2):zs) i s = [((x,y),i,s) | x <- [x1..x2], y <- [y1..y2]] ++ buildRoadList zs i s
+
+--fill the road cell with informations
+fillRoadCell :: [((Int,Int),Integer, String)] -> [((Int,Int), Cell)]
+fillRoadCell [] = []
+fillRoadCell ((pos,i,s):xs) = [(pos, c)] ++ fillRoadCell xs
+                                where c = Road i s
+
+
+
+--divide the buildingstring into three pices
+generateBuilding :: String -> [((Int, Int), Cell)]
+generateBuilding s = generateBuildingList pos firstI second
+                        where first = getStr s ';'
+                              l1 = length (first) +1
+                              firstI = read first :: Integer
+                              second = getStr (drop l1 s) ';'
+                              l2 = l1 + (length second) + 1
+                              third = drop l2 s
+                              pos = createPosTuple (createTupleString third)
+
+--builds the List for the buildings
+generateBuildingList :: [(Int,Int)] -> Integer -> String -> [((Int,Int),Cell)]
+generateBuildingList [] _ _ = []
+generateBuildingList (x:xs) i s = [(z, Building i s) | z <- [x]]
+
+
+{--generates the signallist
+generateSignals :: String ->[((Int,Int), Cell)]
+generateSignals s = generateSignalList pos firstI rel antiRel
+                        where first = getStr s ';'
+                              i1 = (length first) + 1
+                              firstI = read first :: Integer
+                              second = getStr (drop i1 s) ';'
+                              i2 = i1 + 1 + (length second)
+                              pos = createPosTuple (createTupleString second)
+                              rel = getStr (drop i2 s) ';'
+                              i3 = i2 + 1 + (length rel)
+                              antiRel = drop i3 s
+
+--generateSignalList :: [(Int,Int)] -> String -> String -> String -> [((Int,Int), [String])]
+generateSignalList (x:xs) s1 s2 s3 = (x,Signal s1 s2 s3)-}
+
 
 -- returns a string infront of the char              
 getStr :: String -> Char -> String
@@ -115,25 +169,6 @@ createPosTuple (s:xs) = [(read x1 ::Int,read y1 ::Int)] ++ createPosTuple xs
                         where x1 = getStr s ','
                               y1 = drop (1+(length x1)) s
 
-                           
---builds a full list of roadpieces                        
-buildRoadList :: [(Int,Int)] -> String -> String -> [((Int, Int), [String])]
-buildRoadList [] _ _ = []
-buildRoadList ((x1,y1):(x2,y2):zs) s1 s2 = [((x,y),s) | x <- [x1..x2], y <- [y1..y2], s <- [[s1]++[s2]]] ++ buildRoadList zs s1 s2
-
-
---generates the buildinglist
---buildBuilding :: [String] -> [((Int, Int), [String])]
-generateBuilding s = generateBuildingList pos first second
-                        where first = getStr s ';'
-                              second = getStr (drop ((length first)+1) s) ';'
-                              third = drop ((length first)+(length second)+2) s
-                              pos = createPosTuple (createTupleString third)
-
---builds the List for the buildings
-generateBuildingList :: [(Int,Int)] -> String -> String -> [((Int,Int),[String])]
-generateBuildingList [] _ _ = []
-generateBuildingList (x:xs) s1 s2 = [(z, s) | z <- [x], s <- [[s1]++[s2]]] ++ generateBuildingList xs s1 s2
 
 {-main :: IO()
 main = run (readFile "city")
