@@ -14,7 +14,7 @@ hight = 20
 
 -- Using traffic signals to direct the traffic
 -- identifier (x,y) -- [work together];[opposite of,opposite of]
-:Signals:
+:Signals
 1; (4,1);[3];[2,4]
 2; (4,4);[4];[1,3]
 3; (7,4);[1];[2,4]
@@ -22,7 +22,7 @@ hight = 20
 :end
 
 -- Buildings (Id, Name (x,y))
-:Buildings:
+:Buildings
 1; Mueller; (3,1)
 2; Meier; (3,4)
 3; Schulze; (8,1)
@@ -30,8 +30,8 @@ hight = 20
 :end
 
 --Cars (id, (x,y))
-:Cars:
-1; (2,2)
-end
+:Cars
+1; (2,2);(2,10)
+:end
 
 --EOF

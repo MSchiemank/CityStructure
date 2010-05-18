@@ -9,7 +9,8 @@ data Cell = Road    { ident   :: Integer,
           | Signal  { ident   :: Integer,
                       workWith :: [Pos],
                       against  :: [Pos]}
-          | Car     { ident   :: Integer}
+          | Car     { ident   :: Integer,
+                      path    :: [Pos]}
      deriving (Eq, Show)
 
 type Pos = (Int, Int)
@@ -55,7 +56,8 @@ makeString (x:xs) c | x == c = []
                          hight = getHight s}
                    roadCells = generateRoad (searchX s ":Roads")
                    buildingCells = generateBuilding (searchX s ":Buildings")
-                   signalCells = generateSignal (searchX s ":Signals")-}
+                   signalCells = generateSignal (searchX s ":Signals")
+                   carList = generateCarList (serchX s ":Cars")-}
 
 -- returns the width of the city
 getWidth :: [String] -> Int
@@ -127,22 +129,30 @@ generateBuildingList :: [Pos] -> Integer -> String -> [(Pos,Cell)]
 generateBuildingList [] _ _ = []
 generateBuildingList (x:xs) i s = [(z, Building i s) | z <- [x]]
 
---todo!
---generates the signallist
-{--generateSignals :: [String] ->[(Pos, Cell)]
-generateSignals s = buildRelationships listCell listCell
-                        where listCell = genListCell s-}
 
---After the Questions of tomorrow!!!
+--generates the signallist
+generateSignals :: [String] ->[(Pos, Cell)]
+generateSignals s = buildRelationships listCell listCell
+                        where listCell = genListCell s
+
+
 --builds the realationships between the signals
---buildRelationships :: [(Pos, Cell , [Integer], [Integer])] -> [(Pos, Cell , [Integer], [Integer])] -> [(Pos,Cell)]
---buildRelationships ((xy,Signal id with against, wId, aId):xs) l = id 
+buildRelationships :: [(Pos, Cell , [Integer], [Integer])] -> [(Pos, Cell , [Integer], [Integer])] -> [(Pos,Cell)]
+buildRelationships [] l = []
+buildRelationships ((xy,Signal id workWith against, wId, aId):xs) l = [(xy, Signal {ident=id, workWith = with, against = workAgainst})] ++ buildRelationships xs l
+                        where with = map (findPartner l) wId
+                              workAgainst = map (findPartner l) aId
+
+--find the partner cell with the id in ids and returns the Position
+findPartner :: [(Pos, Cell, [Integer], [Integer])] -> Integer -> Pos
+findPartner ((pos, (Signal idd wW wA), i1, i2):xs) ids | idd == ids = pos
+                                                       | otherwise = findPartner xs ids
 
 
 --build a list of cells without relationships
 genListCell :: [String] -> [(Pos, Cell, [Integer], [Integer])]
 genListCell [] = []
-genListCell (x:xs) = [generateEmptySignalCell pos id wW wA] ++ genListCell xs
+genListCell (x:xs) = [(head pos, (Signal id [] []), wW, wA)] ++ genListCell xs
                             where a = makeAll x ';'
                                   id = read (head a) :: Integer
                                   pos = createPosTuple (createTupleString (a!!1))
@@ -150,14 +160,24 @@ genListCell (x:xs) = [generateEmptySignalCell pos id wW wA] ++ genListCell xs
                                   wA = getIntRel (a!!3)
 
 
---builds a signal cell only with the id and also returns the other relationships
-generateEmptySignalCell :: [Pos] -> Integer -> [Integer] -> [Integer] -> (Pos, Cell, [Integer], [Integer])
-generateEmptySignalCell x i s1 s2 = (head x,(Signal i [] []),s1,s2)
-
-
 --makes the relationship from a string to an integer list
 getIntRel :: String -> [Integer]
 getIntRel s = map readI (makeAll (tail (makeString s ']')) ',')
+
+
+--build the car list and the path of the cars
+generateCarList :: [String] -> [(Pos, Cell)]
+generateCarList [] = []
+generateCarList (x:xs) = [(head path, Car id path)] ++ generateCarList xs
+                           where a = makeAll x ';'
+                                 id = readI (head a)
+                                 pos = createPosTuple (createTupleString (a!!1))
+                                 end = createPosTuple (createTupleString (a!!2))
+                                 path = makePath pos end
+
+--first proprietary makePath function
+makePath :: [Pos] -> [Pos] -> [Pos]
+makePath ((x1,y1):xs1) ((x2,y2):xs2) = [(x,y) | x <- [x1..x2] , y <- [y1..y2]]
 
 
 --returns an integer from a String
