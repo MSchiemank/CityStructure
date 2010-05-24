@@ -1,8 +1,8 @@
 --Dimension of the City
-width = 40
-hight = 20
+width = 10
+height = 10
 
--- Structure of the streets (Id, name (x,y) to (x,y) | (x,y) to (x,y))
+-- Structure of the streets (Id; name; (x,y)(x,y) (x,y)(x,y))
 -- Note: one pice of a street will be 2 fields (forward, backward)
 -- example 1: a street from (2,1) to (2,5) needs fields (2,1) to (2,5) and (1,5) to (1,1)
 -- example 2: (1,1) to (5,1) needs (1,1) to (5,1) and (5,2) to (1,2)
@@ -13,7 +13,7 @@ hight = 20
 
 
 -- Using traffic signals to direct the traffic
--- identifier (x,y) -- [work together];[opposite of,opposite of]
+-- identifier; (x,y);[work together];[opposite of,opposite of]
 :Signals
 1; (4,1);[3];[2,4]
 2; (4,4);[4];[1,3]
@@ -21,7 +21,7 @@ hight = 20
 4; (7,1);[2];[1,3]
 :end
 
--- Buildings (Id, Name (x,y))
+-- Buildings (Id; Name; (x,y))
 :Buildings
 1; Mueller; (3,1)
 2; Meier; (3,4)
@@ -29,7 +29,8 @@ hight = 20
 4; Schroeder; (8,4)
 :end
 
---Cars (id, (x,y))
+--Cars (id; (x,y);(x,y))
+--Cars are driving from start-point to the end-point
 :Cars
 1; (2,2);(2,10)
 :end
