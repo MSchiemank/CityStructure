@@ -1,7 +1,23 @@
 import Data.List
 import Char
+
+
+
+--Starting the programm with the main function
+main :: IO()
+main = do file <- readFile "city"
+          run (parse (doInputString file))
+
+
+run :: City -> IO()
+run city = do printCity city
+
+
+
+
+------------------------------------------------------
+
 --Datatype setting
- 
 data Cell = Road    { ident    :: Integer,
                       name     :: String}
           | Building{ ident    :: Integer,
@@ -14,23 +30,65 @@ data Cell = Road    { ident    :: Integer,
           | Empty {}
      deriving (Eq, Show)
 
-type Pos = (Integer, Integer)
-data City = City { width              :: Integer,
-                   height             :: Integer,
-                   streetsBuildings   :: [[Cell]],
-                   carsSignals        :: [[Cell]]}
+type Pos = (Int, Int)
+data City = City { width              :: Int,
+                   height             :: Int,
+                   static             :: [[Cell]],
+                   dynamic            :: [[Cell]]}
      deriving (Eq, Show)
 
+--returns the contents of the structure
+getCityStatic :: City -> [[Cell]]
+getCityStatic (City width height static dynamic) = static
+
+getCityDynamic :: City -> [[Cell]]
+getCityDynamic (City width height static dynamic) = dynamic
+
+getCityWidth :: City -> Int
+getCityWidth (City width height static dynamic) = width
+
+getCityHeight :: City -> Int
+getCityHeight (City width height static dynamic) = height
 
 
+---------------------------------------------------------------
+{-Builds an outputstring on the console. Each row of the lists will be printed as a
+  single row. The preferred Cell is in the dynamic list of the city. If there is an empty
+  field, the static list will be used. If there is a signal or a car, then this it will
+  be printed. 
+  -}
+printCity :: City -> IO()
+printCity city = putStr (printStart city (getCityWidth city) (getCityHeight city) 1 1)
 
-{-main :: IO()
-main = run (readFile "city") :: IO String
+
+printStart :: City -> Int -> Int -> Int -> Int -> String
+printStart city width height x y | x > width = ['\n']++printStart city width height 1 (y+1)
+                                 | y > height = []
+                                 | otherwise = [printCell city (x,y)]
+                                               ++printStart city width height (x+1) y
+
+printCell :: City -> Pos -> Char
+printCell city pos = if dyn /= Empty
+                        then cellToChar dyn
+                        else cellToChar stat
+                       where dyn = getCell (getCityDynamic city) pos
+                             stat = getCell (getCityStatic city) pos
+    
+
+getCell :: [[Cell]] -> (Int,Int) -> Cell
+getCell cell (x,y) = (cell!!(y-1))!!(x-1)
+
+cellToChar :: Cell -> Char
+cellToChar cell = 
+        case cell of
+          { (Road ident name)               -> 'R';
+            (Building ident name)           -> 'H';
+            (Signal ident workWith against) -> 'S';
+            (Car ident path)                -> 'C';
+            Empty                           -> ' '
+          }
 
 
-run :: IO String ->IO()
-run file = do let string = doInputString file
-              putStr string-}
 
 
 {-------------------------------------------------------------
@@ -89,10 +147,10 @@ parse s = do buildCity width height (roadCells++buildingCells) (signalCells++car
                    carCells = generateCarList (searchRows s ":Cars")
 
 -- returns the width or the height of the city
-getDim :: [String] -> String -> Integer
+getDim :: [String] -> String -> Int
 getDim [] s = 1
 getDim (x:xs) s = if isInfixOf s x
-                    then read (drop (length s) x) :: Integer
+                    then read (drop (length s) x) :: Int
                     else getDim xs s
 
 --return only the rows between the selected string s and ":end"
@@ -118,7 +176,7 @@ createTupleString s = [str] ++ createTupleString (drop ((length str)+2) s)
 -- turns a tuplestring to tuples. Get ["1,1"] and return [(1,1)] 
 createPosTuple :: [String] -> [Pos]
 createPosTuple [] = []
-createPosTuple (s:xs) = [(read x1 ::Integer,read y1 ::Integer)] ++ createPosTuple xs
+createPosTuple (s:xs) = [(read x1 ::Int,read y1 ::Int)] ++ createPosTuple xs
                         where x1 = getStr s ','
                               y1 = drop (1+(length x1)) s
 
@@ -146,12 +204,14 @@ generateRoad (x:xs) = fillRoadCell (buildRoadList pos firstI second) ++ generate
         l2 = (length second) + 1 + l1
         third = drop l2 x
         pos = createPosTuple (createTupleString third)
-                    
-                          
+                     
+                       
 --build a full list of roadpoints for one direction of one road.
 buildRoadList :: [Pos] -> Integer -> String -> [(Pos, Integer,String)]
-buildRoadList [] _ _ = []
-buildRoadList ((x1,y1):(x2,y2):zs) i s = [((x,y),i,s) | x <- [x1..x2], y <- [y1..y2]] ++ buildRoadList zs i s
+buildRoadList [] i s = []
+buildRoadList ((x1,y1):(x2,y2):zs) i s = if (x1 <= x2)&&(y1<=y2)
+                                            then [((x,y),i,s) | x <- [x1..x2], y <- [y1..y2]] ++ buildRoadList zs i s
+                                            else [((x,y),i,s) | x <- [x2..x1], y <- [y2..y1]] ++ buildRoadList zs i s
 
 --fill the road cell with informations
 fillRoadCell :: [(Pos,Integer, String)] -> [(Pos, Cell)]
@@ -270,23 +330,23 @@ makePath ((x1,y1):xs1) ((x2,y2):xs2) = [(x,y) | x <- [x1..x2] , y <- [y1..y2]]
 
 {-now the city will be created. The two lists ar like a two dimension array
   each row is a seperate list in the list. That guaranteed the x and y positions -}
-buildCity :: Integer -> Integer -> [(Pos,Cell)] -> [(Pos,Cell)] -> City
+buildCity :: Int -> Int -> [(Pos,Cell)] -> [(Pos,Cell)] -> City
 buildCity w h streetBuild sigCar = City { width            = w,
                                           height           = h,
-                                          streetsBuildings = sB,
-                                          carsSignals      = cS}
+                                          static           = sB,
+                                          dynamic          = cS}
     where sB = buildList w h streetBuild
           cS = buildList w h sigCar
 
 --the rows jointed together
-buildList :: Integer -> Integer -> [(Pos,Cell)] -> [[Cell]]
+buildList :: Int -> Int -> [(Pos,Cell)] -> [[Cell]]
 buildList w h cl = [buildListRow w i cl | i <- [1..h]]
 
 --each row a seperate list
-buildListRow :: Integer -> Integer -> [(Pos,Cell)] -> [Cell]
+buildListRow :: Int -> Int -> [(Pos,Cell)] -> [Cell]
 buildListRow w h cl = [returnCellXY x h cl | x <- [1..w]]
 
-returnCellXY :: Integer -> Integer -> [(Pos,Cell)] -> Cell
+returnCellXY :: Int -> Int -> [(Pos,Cell)] -> Cell
 returnCellXY x y [] = Empty {}
 returnCellXY x y (((x1,y1),c):ls) = if x1 == x && y1 == y
                                      then c
