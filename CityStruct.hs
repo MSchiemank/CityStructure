@@ -1,6 +1,6 @@
 import Data.List
 import Char
-
+import Control.Concurrent
 
 
 --Starting the programm with the main function eleven times
@@ -13,7 +13,9 @@ main = do file <- readFile "city"
 run :: City -> Int -> IO()
 run _ 0 = return ()
 run city i = do printCity city
+                threadDelay 500000
                 run (nextStep city) (i-1)
+
 
 
 {- The nextStep is first to generate a new dynamic list, with the moving cars on the next
