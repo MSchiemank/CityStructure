@@ -332,11 +332,19 @@ buildListRow :: Int -> Int -> [(Pos,Cell)] -> [Cell]
 buildListRow w h cl = [returnCellXY x h cl | x <- [1..w]]
 
 returnCellXY :: Int -> Int -> [(Pos,Cell)] -> Cell
-returnCellXY x y [] = Empty {}
-returnCellXY x y (((x1,y1),c):ls) = if x1 == x && y1 == y
-                                     then c
-                                     else returnCellXY x y ls
+returnCellXY x y list = if length roadList >1 
+                           then roadJunction roadList
+                           else if null roadList
+                                   then Empty {}
+                                   else (\(_,cell) -> cell) (head roadList)
+                        where roadList = filter (\((x1,y1), cell) -> x1==x && y1 == y) list
 
+
+roadJunction :: [(Pos,Cell)] -> Cell
+roadJunction roads = Road id name roadPath
+                     where id = (\(_,Road ident name nextRoad) -> ident) (head roads)
+                           name = (\(_,Road ident name nextRoad) -> name) (head roads)
+                           roadPath = map (\(_,Road ident name nextRoad) -> head nextRoad) roads
 
 getCell :: [[Cell]] -> (Int,Int) -> Cell
 getCell cell (x,y) = (cell!!(y-1))!!(x-1)
