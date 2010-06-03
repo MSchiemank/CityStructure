@@ -58,8 +58,8 @@ printStart city width height x y | x > width = ['\n']++printStart city width hei
 
 printCell :: City -> Pos -> Char
 printCell city pos = if not(null dyn)
-                        then cellToChar (getCellFromTuple (head dyn))
-                        else cellToChar stat
+                        then cellToChar (getCellFromTuple (head dyn)) pos
+                        else cellToChar stat pos
                        where dyn = filter (\(y,_) -> y==pos) (getCityDynamic city)
                              stat = getCell (getCityStatic city) pos
     
@@ -67,17 +67,28 @@ getCellFromTuple :: (Pos,Cell) -> Cell
 getCellFromTuple (pos,cell) = cell
 
 
-cellToChar :: Cell -> Char
-cellToChar cell = 
+getCell :: [[Cell]] -> (Int,Int) -> Cell
+getCell cell (x,y) = (cell!!(y-1))!!(x-1)
+
+
+cellToChar :: Cell -> Pos -> Char
+cellToChar cell pos = 
         case cell of
-          { (Road ident name nextRoad)      -> 'R';
-            (Building ident name)           -> 'H';
-            (Signal ident workWith against) -> 'S';
+          { (Road ident name nextRoad)      -> if length nextRoad <=1
+                                                  then  roadSign (head nextRoad) pos
+                                                  else '\x271B';
+            (Building ident name)           -> ' ';
+            (Signal ident workWith against) -> ' ';
             (Car ident path)                -> 'C';
             Empty                           -> ' '
           }
 
 
-
+roadSign :: Pos -> Pos -> Char
+roadSign (x1,y1) (x,y) | x1 < x = '\x2190'
+                       | x1 > x = '\x2192'
+                       | y1 < y = '\x2191'
+                       | y1 > y = '\x2193'
+                       
 
 

@@ -331,21 +331,43 @@ buildList w h cl = [buildListRow w i cl | i <- [1..h]]
 buildListRow :: Int -> Int -> [(Pos,Cell)] -> [Cell]
 buildListRow w h cl = [returnCellXY x h cl | x <- [1..w]]
 
+
+-- build the cell with the next roadcells(relationships)
 returnCellXY :: Int -> Int -> [(Pos,Cell)] -> Cell
 returnCellXY x y list = if length roadList >1 
                            then roadJunction roadList
                            else if null roadList
                                    then Empty {}
-                                   else (\(_,cell) -> cell) (head roadList)
+                                   else if null emptyPathCell
+                                         then (\(_,cell) -> cell) (head roadList)
+                                         else buildDeadEnd (head emptyPathCell) list
                         where roadList = filter (\((x1,y1), cell) -> x1==x && y1 == y) list
+                              emptyPathCell = emptyPath roadList
 
 
+-- this is the extraction of the streetcell with an empty next road list.
+-- the buildings must not be considered, they causes a runtime error.
+emptyPath :: [(Pos, Cell)] -> [(Pos,Cell)]
+emptyPath ((pos,cell):xs) = case ((\(_, cell) -> cell) (pos,cell)) of 
+                        { (Road ident name nextRoad) -> (filter (\(pos,Road id name roadPath) -> null roadPath) ((pos,cell):xs));
+                          (Building ident name)      -> []
+                        } 
+
+
+buildDeadEnd :: (Pos,Cell) -> [(Pos,Cell)] -> Cell
+buildDeadEnd ((x,y), Road id name roadPath) list = Road id name [next]
+        where nearestStreetCells = filter (\((x1,y1),_) -> (x1==x-1 || x1==x+1)&& y1==y 
+                                                    || x1==x&&(y1==y-1 || y1==y+1)) list
+              onlyThisStreetCells = filter (\(_, Road ident _ _) -> ident == id) nearestStreetCells
+              notBeforeThisCell = filter (\(_, Road _ _ path) -> (head path) /= (x,y)) onlyThisStreetCells
+              next = (\(pos,_) -> pos) (head notBeforeThisCell)  
+
+
+{- build the roadjunctions. One junction will be four cells, and each cell knows 2 
+   directions. The next cell in direction and the left or right cell, addicted by the
+   direction of the cell on the right/left.-}
 roadJunction :: [(Pos,Cell)] -> Cell
 roadJunction roads = Road id name roadPath
                      where id = (\(_,Road ident name nextRoad) -> ident) (head roads)
                            name = (\(_,Road ident name nextRoad) -> name) (head roads)
                            roadPath = map (\(_,Road ident name nextRoad) -> head nextRoad) roads
-
-getCell :: [[Cell]] -> (Int,Int) -> Cell
-getCell cell (x,y) = (cell!!(y-1))!!(x-1)
-
