@@ -334,11 +334,10 @@ returnCellXY x y list = if length roadList >1
                            then roadJunction roadList
                            else if null roadList
                                    then Empty {}
-                                   else if null emptyPathCell
-                                         then (\(_,cell) -> cell) (head roadList)
-                                         else buildDeadEnd (head emptyPathCell) list
-                        where roadList = filter (\((x1,y1), cell) -> x1==x && y1 == y) list
+                                   else (\(_,cell) -> cell) (head roadList)
+                        where roadList = filter (\((x1,y1), cell) -> x1==x && y1 == y) listWithDeadEnds
                               emptyPathCell = emptyPath roadList
+                              listWithDeadEnds = map (buildDeadEnd list) list
 
 
 -- this is the extraction of the streetcell with an empty next road list.
@@ -350,8 +349,11 @@ emptyPath ((pos,cell):xs) = case ((\(_, cell) -> cell) (pos,cell)) of
                         } 
 
 
-buildDeadEnd :: (Pos,Cell) -> [(Pos,Cell)] -> Cell
-buildDeadEnd ((x,y), Road id name roadPath) list = Road id name [next]
+buildDeadEnd :: [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
+buildDeadEnd list ((x,y), Road id name roadPath) = 
+        if null roadPath
+           then ((x,y), Road id name [next])
+           else ((x,y), Road id name roadPath)
         where nearestStreetCells = filter (\((x1,y1),_) -> (x1==x-1 || x1==x+1)&& y1==y 
                                                     || x1==x&&(y1==y-1 || y1==y+1)) list
               onlyThisStreetCells = filter (\(_, Road ident _ _) -> ident == id) nearestStreetCells
@@ -366,4 +368,4 @@ roadJunction :: [(Pos,Cell)] -> Cell
 roadJunction roads = Road id name roadPath
                      where id = (\(_,Road ident name nextRoad) -> ident) (head roads)
                            name = (\(_,Road ident name nextRoad) -> name) (head roads)
-                           roadPath = map (\(_,Road ident name nextRoad) -> head nextRoad) roads
+                           roadPath = nub (map (\(_,Road ident name nextRoad) -> head nextRoad) roads)
