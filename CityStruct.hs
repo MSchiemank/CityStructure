@@ -6,15 +6,15 @@ import Parse
 --Starting the programm with the main function eleven times
 main :: IO()
 main = do file <- readFile "city"
-          let i = 12
+          let i = 5--000
           run (parse (doInputString file)) i
 
 
 run :: City -> Int -> IO()
-run _ 0 = return ()
+run _ 4 = return ()
 run city i = do printCity city
-                threadDelay 500000
-                run (nextStep city) (i-1)
+                threadDelay 200000
+                run (nextStep city) (length (getCityDynamic city))
 
 
 
@@ -56,9 +56,10 @@ carStep static (xa,ya) (Car id (xd,yd) pathOld) =
 -- Check the length of the next cell list.
 nextField :: [[Cell]] -> Cell -> Pos -> [Pos] -> Pos -> Pos
 nextField static (Road _ _ next) destination oldWay pos = 
-                 if (length next) >1
+                 if (length possibleWays) /=1
                     then findWay static destination (next\\oldWay) pos
-                    else head next
+                    else head possibleWays
+                 where possibleWays = next\\oldWay
                     
 
 
@@ -68,8 +69,21 @@ findWay static destination list pos =
                      
 
 -- builds the wight of the next cell
-buildWeight :: Pos -> [Pos] -> [(Int, Pos)]
-buildWeight (xd,yd) list = map (\(x1,y1) -> ((if xd<x1 then x1-xd else xd-x1)+(if yd<y1 then y1-yd else yd-y1),(x1,y1))) list
+buildWeight :: Pos -> [Pos] -> [(Pos, Pos)]
+buildWeight (xd,yd) list = map (\(x1,y1) -> (((if xd<x1 then x1-xd else xd-x1),(if yd<y1 then y1-yd else yd-y1)),(x1,y1))) list
+
+test f = findWayInCorrectDirection static dest weight pos
+         where static = getCityStatic city
+               city = parse (doInputString f)
+               pos = (80,20)
+               pos1 = (80,6)
+               pos2 = (79,7)
+               cell = getCell static pos2
+               list = (\(Road _ _ next) -> next) (getCell static pos)
+               weight = buildWeight dest list
+               dest = (79,30)
+               oldWay = [(2,5),(2,6),(3,6)]
+               nextCellList1 = buildWeight dest ((\(Road _ _ next) -> next) (getCell static pos2))
 
 
 
@@ -77,16 +91,25 @@ buildWeight (xd,yd) list = map (\(x1,y1) -> ((if xd<x1 then x1-xd else xd-x1)+(i
    of the way is lesser than the other, that will be the next weight.
     If it's equal, then the wight form each next but one cell decides what
     way will be taken.-}
-findWayInCorrectDirection :: [[Cell]] -> Pos -> [(Int, Pos)] -> Pos -> Pos
-findWayInCorrectDirection static (xd,yd) ((w1,(x1,y1)):(w2,(x2,y2)):xs) (xa,ya)=
-    if w1 == w2
-       then if (minimum nextCellList1) < (minimum nextCellList2)
-             then (x1,y1)
-             else (x2,y2)
-       else (\(_,pos) -> pos) (minimum ((w1,(x1,y1)):(w2,(x2,y2)):xs))
-    where nextCellList1 = buildWeight (xd,yd) ((\(Road _ _ next) -> next) (getCell static (x1,y1)))
-          nextCellList2 = buildWeight (xd,yd) ((\(Road _ _ next) -> next) (getCell static (x2,y2)))
-         
+findWayInCorrectDirection :: [[Cell]] -> Pos -> [(Pos, Pos)] -> Pos -> Pos
+--findWayInCorrectDirection _ _ [] _ = (-1,-1)
+findWayInCorrectDirection static (xd,yd) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs) (xa,ya)=
+    if (wx1+wy1) == (wx2+wy2)
+       then if nextWeight1==nextWeight2
+               then if (maximum [wx1,wy1] < maximum [wx2,wy2])
+                        then (x1,y1)
+                        else (x2,y2)
+               else if nextWeight1<nextWeight2
+                       then (x1,y1)
+                       else (x2,y2)
+       else (\(_,pos) -> pos) (minimum (map (\((wx,wy),pos) -> ((wx+wy),pos)) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs)))
+       where nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
+             weight1 = buildWeight (xd,yd) nextCellNext1
+             nextCellNext1 = (\(Road _ _ next) -> next) (getCell static (x1,y1))
+             nextWeight2 = minimum (map (\((x,y),_) -> x+y) weight2)
+             weight2 = buildWeight (xd,yd) nextCellNext2
+             nextCellNext2 = (\(Road _ _ next) -> next) (getCell static (x2,y2))
+             
 
 
 ---------------------------------------------------------------
@@ -101,7 +124,7 @@ printCity city = putStr (printStart city (getCityWidth city) (getCityHeight city
 
 printStart :: City -> Int -> Int -> Int -> Int -> String
 printStart city width height x y | x > width = ['\n']++printStart city width height 1 (y+1)
-                                 | y > height = []
+                                 | y > height = ['\n']
                                  | otherwise = [printCell city (x,y)]
                                                ++printStart city width height (x+1) y
 
@@ -128,7 +151,7 @@ cellToChar cell pos =
                                                   else '\x271B';
             (Building ident name)           -> ' ';
             (Signal ident workWith against) -> ' ';
-            (Car ident dest iWasThere)      -> 'C';
+            (Car ident dest iWasThere)      -> 'A';
             Empty                           -> ' '
           }
 

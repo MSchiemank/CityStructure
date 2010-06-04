@@ -328,32 +328,34 @@ buildListRow :: Int -> Int -> [(Pos,Cell)] -> [Cell]
 buildListRow w h cl = [returnCellXY x h cl | x <- [1..w]]
 
 
--- build the cell with the next roadcells(relationships)
+
+-- returns the cell at x,y. But when nothnig is there, an empty cell will be returned.
+-- it extracts also the buildings and the roads.
 returnCellXY :: Int -> Int -> [(Pos,Cell)] -> Cell
-returnCellXY x y list = if length roadList >1 
-                           then roadJunction roadList
-                           else if null roadList
-                                   then Empty {}
-                                   else (\(_,cell) -> cell) (head roadList)
-                        where roadList = filter (\((x1,y1), cell) -> x1==x && y1 == y) listWithDeadEnds
-                              emptyPathCell = emptyPath roadList
-                              listWithDeadEnds = map (buildDeadEnd list) list
+returnCellXY x y list = if length cellList ==0
+                           then Empty {} 
+                           else case (head cellList) of 
+                                 { (pos, Building ident name)     -> Building ident name;
+                                   (pos, Road ident name nextRoad)-> buildDeadEndRoadJunction cellList list
+                                 }
+                        where cellList = filter (\((x1,y1), cell) -> x1==x && y1 == y) list
 
 
--- this is the extraction of the streetcell with an empty next road list.
--- the buildings must not be considered, they causes a runtime error.
-emptyPath :: [(Pos, Cell)] -> [(Pos,Cell)]
-emptyPath ((pos,cell):xs) = case ((\(_, cell) -> cell) (pos,cell)) of 
-                        { (Road ident name nextRoad) -> (filter (\(pos,Road id name roadPath) -> null roadPath) ((pos,cell):xs));
-                          (Building ident name)      -> []
-                        } 
+-- this one generates all deadends and roadjunctions. If only one cell is in the list, 
+-- then this one will be returned after checking for the next road piece.
+buildDeadEndRoadJunction :: [(Pos,Cell)] -> [(Pos,Cell)] -> Cell
+buildDeadEndRoadJunction cellList list = if length cellList == 1 
+                                            then buildDeadEnd list (head cellList)
+                                            else roadJunction (map (buildDeadEnd list) cellList)
 
 
-buildDeadEnd :: [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
+-- the function search for the next road piece. If nothing was found, then it searches for
+-- the nearest pice of the same road!
+buildDeadEnd :: [(Pos,Cell)] -> (Pos,Cell) -> Cell
 buildDeadEnd list ((x,y), Road id name roadPath) = 
         if null roadPath
-           then ((x,y), Road id name [next])
-           else ((x,y), Road id name roadPath)
+           then Road id name [next]
+           else Road id name roadPath
         where nearestStreetCells = filter (\((x1,y1),_) -> (x1==x-1 || x1==x+1)&& y1==y 
                                                     || x1==x&&(y1==y-1 || y1==y+1)) list
               onlyThisStreetCells = filter (\(_, Road ident _ _) -> ident == id) nearestStreetCells
@@ -364,8 +366,8 @@ buildDeadEnd list ((x,y), Road id name roadPath) =
 {- build the roadjunctions. One junction will be four cells, and each cell knows 2 
    directions. The next cell in direction and the left or right cell, addicted by the
    direction of the cell on the right/left.-}
-roadJunction :: [(Pos,Cell)] -> Cell
+roadJunction :: [Cell] -> Cell
 roadJunction roads = Road id name roadPath
-                     where id = (\(_,Road ident name nextRoad) -> ident) (head roads)
-                           name = (\(_,Road ident name nextRoad) -> name) (head roads)
-                           roadPath = nub (map (\(_,Road ident name nextRoad) -> head nextRoad) roads)
+                     where id = (\(Road ident name nextRoad) -> ident) (head roads)
+                           name = (\(Road ident name nextRoad) -> name) (head roads)
+                           roadPath = nub (map (\(Road ident name nextRoad) -> head nextRoad) roads)
