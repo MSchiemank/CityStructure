@@ -32,8 +32,10 @@ height = 11
 --Cars (id; (x,y);(x,y))
 --Cars are driving from start-point to the end-point
 :Cars
-1; (2,2);(2,10)
-2; H4;H2
+--1; (2,2);(2,10)
+--2; H4;H2
+3; (2,3); (9,5)
+--4; (3,10); (9,5)
 :end
 
 --EOF

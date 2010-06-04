@@ -6,7 +6,7 @@ import Parse
 --Starting the programm with the main function eleven times
 main :: IO()
 main = do file <- readFile "city"
-          let i = 10
+          let i = 12
           run (parse (doInputString file)) i
 
 
@@ -24,20 +24,69 @@ nextStep :: City -> City
 nextStep city = City {width  = getCityWidth  city,
                       height = getCityHeight city,
                       static = getCityStatic city,
-                      dynamic = filter (\(pos,cell) -> pos /= (-1,-1)) (map (nextCarsAndSignals) (getCityDynamic city))}
+                      dynamic = filter (\(pos,cell) -> pos /= (-1,-1)) (map (nextCarsAndSignals (getCityStatic city)) (getCityDynamic city))}
 
 
-{- The cars move along the path. The next element of the path will be the next position.
+
+
+
+
+{- The cars look for the next field in the street cell. If there will be 2 next 
+   fields, then it will look, which field is the nearest to the target. There for 
+   are the wights. If the wight is equal, then the next but one fields will be
+   looked for. And this fields have also a next field, then the wights for this will
+   be created and the lower wight will elected the real next step.
    After the car has reached the destination, it will be removed from the city.-}
-nextCarsAndSignals :: (Pos,Cell) -> (Pos,Cell)
-nextCarsAndSignals (pos, cell) = case cell of 
-                                    { (Signal ident workWith against) -> (pos, cell);
-                                      (Car ident path)                -> carStep (pos, cell)}
+nextCarsAndSignals :: [[Cell]] -> (Pos,Cell) -> (Pos,Cell)
+nextCarsAndSignals static (pos, cell) = case cell of 
+                                         { (Signal ident workWith against) -> (pos, cell);
+                                           (Car ident dest iWasThere)      -> carStep static pos cell}
 
-carStep :: (Pos,Cell) -> (Pos,Cell)
-carStep (pos,(Car id pathOld)) = if (null pathOld)
-                                    then ((-1,-1), Car {ident=0, path=[]})
-                                    else (head pathOld,Car {ident = id, path = tail(pathOld)})
+-- Remove the car, if its on the destination or in the neighborhood.
+carStep :: [[Cell]] -> Pos -> Cell -> (Pos,Cell)
+carStep static (xa,ya) (Car id (xd,yd) pathOld) =
+             if (xa,ya) == (xd,yd) || 
+                xa==xd && (ya==yd-1 || ya==yd+1) || 
+                ya==yd && (xa==xd-1 || xa==xd+1)
+                then ((-1,-1), Car {ident=0, dest=(-1,-1), iWasThere=[] })
+                else (nextField static (getCell static (xa,ya)) (xd,yd) pathOld (xa,ya), Car id (xd,yd) (pathOld++[(xa,ya)]))
+           
+
+
+-- Check the length of the next cell list.
+nextField :: [[Cell]] -> Cell -> Pos -> [Pos] -> Pos -> Pos
+nextField static (Road _ _ next) destination oldWay pos = 
+                 if (length next) >1
+                    then findWay static destination (next\\oldWay) pos
+                    else head next
+                    
+
+
+findWay :: [[Cell]] -> Pos -> [Pos] -> Pos -> Pos
+findWay static destination list pos =
+        findWayInCorrectDirection static destination (buildWeight destination list) pos
+                     
+
+-- builds the wight of the next cell
+buildWeight :: Pos -> [Pos] -> [(Int, Pos)]
+buildWeight (xd,yd) list = map (\(x1,y1) -> ((if xd<x1 then x1-xd else xd-x1)+(if yd<y1 then y1-yd else yd-y1),(x1,y1))) list
+
+
+
+{- This one decides which next cell will be used. If the weight from one
+   of the way is lesser than the other, that will be the next weight.
+    If it's equal, then the wight form each next but one cell decides what
+    way will be taken.-}
+findWayInCorrectDirection :: [[Cell]] -> Pos -> [(Int, Pos)] -> Pos -> Pos
+findWayInCorrectDirection static (xd,yd) ((w1,(x1,y1)):(w2,(x2,y2)):xs) (xa,ya)=
+    if w1 == w2
+       then if (minimum nextCellList1) < (minimum nextCellList2)
+             then (x1,y1)
+             else (x2,y2)
+       else (\(_,pos) -> pos) (minimum ((w1,(x1,y1)):(w2,(x2,y2)):xs))
+    where nextCellList1 = buildWeight (xd,yd) ((\(Road _ _ next) -> next) (getCell static (x1,y1)))
+          nextCellList2 = buildWeight (xd,yd) ((\(Road _ _ next) -> next) (getCell static (x2,y2)))
+         
 
 
 ---------------------------------------------------------------
@@ -67,7 +116,7 @@ getCellFromTuple :: (Pos,Cell) -> Cell
 getCellFromTuple (pos,cell) = cell
 
 
-getCell :: [[Cell]] -> (Int,Int) -> Cell
+getCell :: [[Cell]] -> (Pos) -> Cell
 getCell cell (x,y) = (cell!!(y-1))!!(x-1)
 
 
@@ -79,7 +128,7 @@ cellToChar cell pos =
                                                   else '\x271B';
             (Building ident name)           -> ' ';
             (Signal ident workWith against) -> ' ';
-            (Car ident path)                -> 'C';
+            (Car ident dest iWasThere)      -> 'C';
             Empty                           -> ' '
           }
 

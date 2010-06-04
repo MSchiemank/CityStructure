@@ -4,16 +4,17 @@ import Data.List
 import Char
 
 --Datatype setting
-data Cell = Road    { ident    :: Int,
-                      name     :: String,
-                      nextRoad :: [Pos]}
-          | Building{ ident    :: Int,
-                      name     :: String}
-          | Signal  { ident    :: Int,
-                      workWith :: [Pos],
-                      against  :: [Pos]}
-          | Car     { ident    :: Int,
-                      path     :: [Pos]}
+data Cell = Road    { ident     :: Int,
+                      name      :: String,
+                      nextRoad  :: [Pos]}
+          | Building{ ident     :: Int,
+                      name      :: String}
+          | Signal  { ident     :: Int,
+                      workWith  :: [Pos],
+                      against   :: [Pos]}
+          | Car     { ident     :: Int,
+                      dest      :: Pos,
+                      iWasThere :: [Pos]}
           | Empty {}
      deriving (Eq, Show)
 
@@ -274,13 +275,12 @@ findPartner ((pos, (Signal idd wW wA), i1, i2):xs) ids | idd == ids = pos
 generateCarList :: [String] -> [(Pos, Cell)] -> [(Pos, Cell)] -> [(Pos, Cell)]
 generateCarList [] _ _= []
 generateCarList (x:xs) building roads =
-                 [(head path, Car id (tail path))] ++ generateCarList xs building roads
+                 [(pos, Car id end [])] ++ generateCarList xs building roads
                            where a = stringListBeforeChar x ';'
                                  id = read (head a) ::Int
                                  pos = findPos building roads (a!!1)
                                  end = findPos building roads (a!!2)
-                                 path = makePath pos end
-
+                                 
 
 {- Extract the id of the house or the starting positon tuple-}
 findPos ::  [(Pos, Cell)] -> [(Pos, Cell)] -> String -> Pos
@@ -301,11 +301,7 @@ findStreetForBuilding build street id = head positions
 
 
 
---first makePath function, which goes from point a to b in a line
-makePath :: Pos -> Pos -> [Pos]
-makePath (x1,y1) (x2,y2) | x2<x1 = reverse[(x,y) | x <- [x2..x1] , y <- [y1..y2]]
-                         | y2<y1 = reverse[(x,y) | x <- [x1..x2] , y <- [y2..y1]]
-                         | otherwise = [(x,y) | x <- [x1..x2] , y <- [y1..y2]]
+--------------------------------------------------------------------------------
 
 
 
