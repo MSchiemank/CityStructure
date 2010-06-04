@@ -92,7 +92,7 @@ test f = findWayInCorrectDirection static dest weight pos
     If it's equal, then the wight form each next but one cell decides what
     way will be taken.-}
 findWayInCorrectDirection :: [[Cell]] -> Pos -> [(Pos, Pos)] -> Pos -> Pos
---findWayInCorrectDirection _ _ [] _ = (-1,-1)
+findWayInCorrectDirection _ _ [] _ = (-1,-1)
 findWayInCorrectDirection static (xd,yd) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs) (xa,ya)=
     if (wx1+wy1) == (wx2+wy2)
        then if nextWeight1==nextWeight2
