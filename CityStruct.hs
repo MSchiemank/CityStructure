@@ -5,16 +5,16 @@ import Parse
 
 --Starting the programm with the main function eleven times
 main :: IO()
-main = do file <- readFile "city"
-          let i = 5--000
+main = do file <- readFile "city"--"signalTest"--
+          let i = 15--000
           run (parse (doInputString file)) i
 
 
 run :: City -> Int -> IO()
 run _ 4 = return ()
 run city i = do printCity city
-                threadDelay 200000
-                run (nextStep city) (length (getCityDynamic city))
+                threadDelay 1000000--300000 getLine --
+                run (nextStep city) (length (getCityDynamic city))--(i-1)--(length (getCityDynamic city))
 
 
 
@@ -24,8 +24,27 @@ nextStep :: City -> City
 nextStep city = City {width  = getCityWidth  city,
                       height = getCityHeight city,
                       static = getCityStatic city,
-                      dynamic = filter (\(pos,cell) -> pos /= (-1,-1)) (map (nextCarsAndSignals (getCityStatic city)) (getCityDynamic city))}
+                      dynamic = allCarsWithoutTwoOnOneCell}
+                where withDouble = filter (\(pos,cell) -> pos /= (-1,-1)) (map (nextCarsAndSignals (getCityStatic city) dyn) dyn) --build the next way of all cars 
+                      dyn = getCityDynamic city
+                      searchDoubleForEachElement = map (\(pos1,_) -> filter (\(pos,cell) -> pos == pos1) withDouble) withDouble 
+                      extractDouble = nub $ filter (\x -> length x >1) searchDoubleForEachElement     --extract the double cars on one Cell
+                      allCarsWithoutTwoOnOneCell = concat (map rightBeforeLeft extractDouble)++(withDouble\\(concat extractDouble)) --this will correct the two cars on one cell phenomenon
 
+
+                      
+-- returns the old position of the first car on the cell, the other car moves on
+-- will be used, if two cars are on one cell.
+rightBeforeLeft :: [(Pos,Cell)] -> [(Pos,Cell)]
+rightBeforeLeft (x:xs) = (returnOldPos x, remLastPos x):xs
+
+
+
+returnOldPos :: (Pos,Cell) -> Pos
+returnOldPos (_,Car id dest oldPath) = head $reverse oldPath
+
+remLastPos :: (Pos,Cell) -> Cell
+remLastPos (_,Car id dest oldPath) = Car id dest $ reverse $ tail $ reverse oldPath
 
 
 
@@ -37,30 +56,73 @@ nextStep city = City {width  = getCityWidth  city,
    looked for. And this fields have also a next field, then the wights for this will
    be created and the lower wight will elected the real next step.
    After the car has reached the destination, it will be removed from the city.-}
-nextCarsAndSignals :: [[Cell]] -> (Pos,Cell) -> (Pos,Cell)
-nextCarsAndSignals static (pos, cell) = case cell of 
-                                         { (Signal ident workWith against) -> (pos, cell);
-                                           (Car ident dest iWasThere)      -> carStep static pos cell}
+nextCarsAndSignals :: [[Cell]] -> [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
+nextCarsAndSignals static dynamic (pos, cell) = case cell of 
+                                         { (Signal ident status stepToWait remainingSteps workWith against) -> signalStatus (pos, cell);
+                                           (Car ident dest iWasThere)      -> checkSignal static dynamic pos cell}
+
+
+-- switches the signals
+signalStatus :: (Pos,Cell) -> (Pos,Cell)
+signalStatus (pos, Signal id stat step remainingStep wW wA) =
+                if remainingStep == 1
+                   then (pos, Signal { ident         = id,
+                                       status        = not stat,
+                                       stepToWait    = step,
+                                       remainingSteps= step,
+                                       workWith      = wW,
+                                       against       = wA})
+                   else (pos, Signal { ident         = id,
+                                       status        = stat,
+                                       stepToWait    = step,
+                                       remainingSteps= (remainingStep-1),
+                                       workWith      = wW,
+                                       against       = wA})
+
+
+{- checks, if the next or the next but one roadpiece is a junction. If thats true, the status of the signal will be checked.
+   If signal shows red, then the car will remain on the position, otherwise it will move forward.-}
+checkSignal ::  [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell ->  (Pos, Cell)
+checkSignal stat dyn (x,y) cell = if length nextButOnePos > 1 || length nextButTwoPos > 1
+                                     then if length nearestSignal > 0
+                                             then if and $ map (\(_,(Signal _ status _ _ _ _)) -> status) nearestSignal
+                                                     then carStep stat dyn (x,y) cell
+                                                     else ((x,y),cell)
+                                             else carStep stat dyn (x,y) cell
+                                     else carStep stat dyn (x,y) cell
+                                  where nextPos = head((\(Road _ _ next) -> next) (getCell stat (x,y)))
+                                        nextButOnePos = (\(Road _ _ next) -> next) (getCell stat nextPos)
+                                        nextButTwoPos = map (\(Road _ _ next) -> next) $ map (getCell stat) nextButOnePos
+                                        allSignals = filter (\(_,cell1) -> case cell1 of 
+                                                               {(Signal ident status stepToWait remainingSteps workWith against) -> True;
+                                                                 otherwise -> False}
+                                                                 ) dyn
+                                        nearestSignal = filter (\((x1,y1),cell) -> x1==x && (y1==y-1 || y1==y+1) ||
+                                                                                   y1==y && (x1==x-1 || x1==x+1)
+                                                                                   ) allSignals
+
+
 
 -- Remove the car, if its on the destination or in the neighborhood.
-carStep :: [[Cell]] -> Pos -> Cell -> (Pos,Cell)
-carStep static (xa,ya) (Car id (xd,yd) pathOld) =
+carStep :: [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell -> (Pos,Cell)
+carStep static dyn (xa,ya) (Car id (xd,yd) pathOld) =
              if (xa,ya) == (xd,yd) || 
                 xa==xd && (ya==yd-1 || ya==yd+1) || 
                 ya==yd && (xa==xd-1 || xa==xd+1)
                 then ((-1,-1), Car {ident=0, dest=(-1,-1), iWasThere=[] })
-                else (nextField static (getCell static (xa,ya)) (xd,yd) pathOld (xa,ya), Car id (xd,yd) (pathOld++[(xa,ya)]))
+                else if length (filter (\(pos,cell) -> pos==next) dyn) > 0    --if a car is on the next field
+                        then ((xa,ya), Car id (xd,yd) pathOld)                --then it will remain on the current place
+                        else (next, Car id (xd,yd) (pathOld++[(xa,ya)]))      --otherwise it will move on
+             where next = nextField static dyn (getCell static (xa,ya)) (xd,yd) pathOld (xa,ya)
            
 
-
 -- Check the length of the next cell list.
-nextField :: [[Cell]] -> Cell -> Pos -> [Pos] -> Pos -> Pos
-nextField static (Road _ _ next) destination oldWay pos = 
+nextField :: [[Cell]] -> [(Pos,Cell)] -> Cell -> Pos -> [Pos] -> Pos -> Pos
+nextField static dyn (Road _ _ next) destination oldWay pos = 
                  if (length possibleWays) /=1
                     then findWay static destination (next\\oldWay) pos
                     else head possibleWays
-                 where possibleWays = next\\oldWay
-                    
+                 where possibleWays = next\\oldWay                    
 
 
 findWay :: [[Cell]] -> Pos -> [Pos] -> Pos -> Pos
@@ -71,20 +133,6 @@ findWay static destination list pos =
 -- builds the wight of the next cell
 buildWeight :: Pos -> [Pos] -> [(Pos, Pos)]
 buildWeight (xd,yd) list = map (\(x1,y1) -> (((if xd<x1 then x1-xd else xd-x1),(if yd<y1 then y1-yd else yd-y1)),(x1,y1))) list
-
-test f = findWayInCorrectDirection static dest weight pos
-         where static = getCityStatic city
-               city = parse (doInputString f)
-               pos = (80,20)
-               pos1 = (80,6)
-               pos2 = (79,7)
-               cell = getCell static pos2
-               list = (\(Road _ _ next) -> next) (getCell static pos)
-               weight = buildWeight dest list
-               dest = (79,30)
-               oldWay = [(2,5),(2,6),(3,6)]
-               nextCellList1 = buildWeight dest ((\(Road _ _ next) -> next) (getCell static pos2))
-
 
 
 {- This one decides which next cell will be used. If the weight from one
@@ -150,7 +198,7 @@ cellToChar cell pos =
                                                   then  roadSign (head nextRoad) pos
                                                   else '\x271B';
             (Building ident name)           -> ' ';
-            (Signal ident workWith against) -> ' ';
+            (Signal ident status stepToWait remainingSteps workWith against) -> signalSign status;
             (Car ident dest iWasThere)      -> 'A';
             Empty                           -> ' '
           }
@@ -163,4 +211,7 @@ roadSign (x1,y1) (x,y) | x1 < x = '\x2190'
                        | y1 > y = '\x2193'
                        
 
-
+signalSign :: Bool -> Char
+signalSign b = if b
+                  then 'G'
+                  else 'R'

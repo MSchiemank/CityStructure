@@ -4,17 +4,20 @@ import Data.List
 import Char
 
 --Datatype setting
-data Cell = Road    { ident     :: Int,
-                      name      :: String,
-                      nextRoad  :: [Pos]}
-          | Building{ ident     :: Int,
-                      name      :: String}
-          | Signal  { ident     :: Int,
-                      workWith  :: [Pos],
-                      against   :: [Pos]}
-          | Car     { ident     :: Int,
-                      dest      :: Pos,
-                      iWasThere :: [Pos]}
+data Cell = Road    { ident         :: Int,
+                      name          :: String,
+                      nextRoad      :: [Pos]}
+          | Building{ ident         :: Int,
+                      name          :: String}
+          | Signal  { ident         :: Int,
+                      status        :: Bool,
+                      stepToWait    :: Int,
+                      remainingSteps:: Int,
+                      workWith      :: [Pos],
+                      against       :: [Pos]}
+          | Car     { ident         :: Int,
+                      dest          :: Pos,
+                      iWasThere     :: [Pos]}
           | Empty {}
      deriving (Eq, Show)
 
@@ -226,12 +229,15 @@ generateSignals s = buildRelationships listCell listCell
   comprised the workAgainst signalid's.-}
 genListCell :: [String] -> [(Pos, Cell, [Int], [Int])]
 genListCell [] = []
-genListCell (x:xs) = [(head pos, (Signal id [] []), wW, wA)] ++ genListCell xs
+genListCell (x:xs) = [(head pos, (Signal id status step step [] []), wW, wA)] ++ genListCell xs
                             where a = stringListBeforeChar x ';'
                                   id = read (head a) :: Int
                                   pos = createPosTuple (createTupleString (a!!1))
-                                  wW = getIntRel (a!!2)
-                                  wA = getIntRel (a!!3)
+                                  status = "green" == (a!!2)
+                                  step = read (a!!3) :: Int
+                                  wW = getIntRel (a!!4)
+                                  wA = getIntRel (a!!5)
+
 
 --makes the relationship id's from a string to an integer list
 getIntRel :: String -> [Int]
@@ -250,15 +256,15 @@ readI s = read s :: Int
   the workWith-list and the second integer-list is the workAgainst-list-}
 buildRelationships :: [(Pos, Cell , [Int], [Int])] -> [(Pos, Cell , [Int], [Int])] -> [(Pos,Cell)]
 buildRelationships [] l = []
-buildRelationships ((xy,Signal id workWith against, wId, aId):xs) l = [(xy, Signal {ident=id, workWith = with, against = workAgainst})] ++ buildRelationships xs l
+buildRelationships ((xy,Signal id st sA sR workWith against, wId, aId):xs) l = [(xy, Signal {ident=id, status = st, stepToWait=sA, remainingSteps= sR, workWith = with, against = workAgainst})] ++ buildRelationships xs l
                         where with = map (findPartner l) wId
                               workAgainst = map (findPartner l) aId
 
 --find the partner cell with the id in the second list named ids and 
 --returns the position coordinates
 findPartner :: [(Pos, Cell, [Int], [Int])] -> Int -> Pos
-findPartner ((pos, (Signal idd wW wA), i1, i2):xs) ids | idd == ids = pos
-                                                       | otherwise = findPartner xs ids
+findPartner ((pos, (Signal idd st sA sR wW wA), i1, i2):xs) ids | idd == ids = pos
+                                                                | otherwise = findPartner xs ids
 
 
 
