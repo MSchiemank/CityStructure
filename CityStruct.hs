@@ -28,28 +28,63 @@ main = do file <- readFile "city"--"signalTest"--
           initGUI
           Just xml <- xmlNew "gui.glade"
           window   <- xmlGetWidget xml castToWindow "window1"
+          reset <- xmlGetWidget xml castToButton "reset"
+          start <- xmlGetWidget xml castToButton "start"
+          stop <- xmlGetWidget xml castToButton "stop"
           step <- xmlGetWidget xml castToButton "stepButton"
+          speedButton <- xmlGetWidget xml castToSpinButton "speed"
           grid <- xmlGetWidget xml castToCheckButton "gridButton"
           drawarea <- xmlGetWidget xml castToDrawingArea "drawingarea"
 
           drawarea `on` sizeRequest $ return (Requisition winW winH)
-          
 
+          speed <- spinButtonGetValueAsInt speedButton
+          speedIO <- newIORef speed
+          autoIO <- newIORef False
+
+          onClicked reset $ do cityIO <- newIORef $parse $doInputString file
+                               update grid drawarea cityIO 
+
+          onClicked start $ do modifyIORef autoIO $ do return True
+
+          onClicked stop $ do modifyIORef autoIO $ do return False
+          
           onClicked step $ do city <- readIORef cityIO
                               modifyIORef cityIO nextStep
                               update grid drawarea cityIO  
-
+            
+          onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
+                                         modifyIORef speedIO (return s2)
+                        
 
           onToggled grid $ update grid drawarea cityIO
  
           gridActive <- toggleButtonGetActive grid
           onExpose drawarea $exposeDraw drawarea gridActive cityIO
+          
+          forkOS (thread cityIO speedIO autoIO drawarea grid)
+
 
           onDestroy window mainQuit
           widgetShowAll window
           mainGUI
 
 --          run (parse (doInputString file)) i
+
+thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> IO ()
+thread cityIO speedIO autoIO drawarea grid = do
+    speed <- readIORef speedIO
+    auto <- readIORef autoIO
+    putStrLn "tick"
+    threadDelay (div (10^6) speed)
+    if auto
+        then (do city <- readIORef cityIO
+                 modifyIORef cityIO nextStep
+                 update grid drawarea cityIO)
+        else return ()
+
+    widgetQueueDraw drawarea
+    thread cityIO speedIO autoIO drawarea grid
 
 
 {-run :: City -> Int -> IO()
@@ -58,6 +93,7 @@ run city i = do --printCity city
                 --threadDelay 1000000--300000 getLine --
                 --run (nextStep city) (length (getCityDynamic city))--(i-1)--(length (getCityDynamic city))-}
 
+update :: CheckButton -> DrawingArea -> IORef City -> IO ()
 update grid drawarea cityIO = do
     gridAct <- toggleButtonGetActive grid 
     (w,h) <- widgetGetSize drawarea
