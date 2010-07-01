@@ -17,14 +17,15 @@ spaceCell = 10 ::Int
 main :: IO()
 main = do file <- readFile "city"--"signalTest"--
 
+-- the city is now an IORef
           cityIO <- newIORef $parse $doInputString file
           c <- readIORef cityIO
 
-          let i = 15--000
-              --city = parse (doInputString file)
-              winW = spaceCell * (getCityWidth c)
+          let winW = spaceCell * (getCityWidth c)
               winH = spaceCell * (getCityHeight c)
 
+
+--set up the gui with relationships
           initGUI
           Just xml <- xmlNew "gui.glade"
           window   <- xmlGetWidget xml castToWindow "window1"
@@ -38,30 +39,42 @@ main = do file <- readFile "city"--"signalTest"--
 
           drawarea `on` sizeRequest $ return (Requisition winW winH)
 
+--settin the speed as an IORef var and the automation flag to False.
           speed <- spinButtonGetValueAsInt speedButton
           speedIO <- newIORef speed
           autoIO <- newIORef False
 
+-- the events with the different handlings
+
+-- resets the drawingarea to the beginnig
           onClicked reset $ do cityIO <- newIORef $parse $doInputString file
                                update grid drawarea cityIO 
 
+-- starts the automatic by setting the autoIO flag
           onClicked start $ do modifyIORef autoIO $ do return True
 
+-- stopps the automatic 
           onClicked stop $ do modifyIORef autoIO $ do return False
-          
+
+-- step by step the drawingarea will be changed          
           onClicked step $ do city <- readIORef cityIO
                               modifyIORef cityIO nextStep
                               update grid drawarea cityIO  
-            
+
+-- the modifying of the speedIO var           
           onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
                                          modifyIORef speedIO (return s2)
                         
-
+-- turns the gridd on and off
           onToggled grid $ update grid drawarea cityIO
- 
+
+
+-- for the first popup of the window 
           gridActive <- toggleButtonGetActive grid
           onExpose drawarea $exposeDraw drawarea gridActive cityIO
-          
+
+
+--starts a new IO thread for the automatic          
           forkOS (thread cityIO speedIO autoIO drawarea grid)
 
 
@@ -69,30 +82,29 @@ main = do file <- readFile "city"--"signalTest"--
           widgetShowAll window
           mainGUI
 
---          run (parse (doInputString file)) i
 
+
+-----------------------------------------------------------------------------------------
+
+-- the new thread for the automatic
 thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> IO ()
 thread cityIO speedIO autoIO drawarea grid = do
-    speed <- readIORef speedIO
-    auto <- readIORef autoIO
-    putStrLn "tick"
-    threadDelay (div (10^6) speed)
-    if auto
+    speed <- readIORef speedIO          --lift the IORef speedIO to int
+    auto <- readIORef autoIO            --like above
+--    putStrLn "tick"
+    threadDelay (div (10^6) speed)      --need more time to look?
+    if auto                             --automatic or not?
         then (do city <- readIORef cityIO
                  modifyIORef cityIO nextStep
                  update grid drawarea cityIO)
         else return ()
 
-    widgetQueueDraw drawarea
-    thread cityIO speedIO autoIO drawarea grid
+    widgetQueueDraw drawarea            -- new drawing of the drawarea
+    thread cityIO speedIO autoIO drawarea grid        --Endless loop
 
+-----------------------------------------------------------------------------------------
 
-{-run :: City -> Int -> IO()
-run _ 4 = return ()
-run city i = do --printCity city
-                --threadDelay 1000000--300000 getLine --
-                --run (nextStep city) (length (getCityDynamic city))--(i-1)--(length (getCityDynamic city))-}
-
+-- used when reset or step button are pushed. I don't like to lift the IO Monad
 update :: CheckButton -> DrawingArea -> IORef City -> IO ()
 update grid drawarea cityIO = do
     gridAct <- toggleButtonGetActive grid 
@@ -104,7 +116,7 @@ update grid drawarea cityIO = do
 
 
 
-
+-- used only on expose event.
 exposeDraw :: DrawingArea -> Bool -> IORef City -> Events.Event -> IO Bool
 exposeDraw draw grid cityIO event = do
             (w,h) <- widgetGetSize draw
@@ -114,28 +126,30 @@ exposeDraw draw grid cityIO event = do
             return (Events.eventSent event)
  
 
-
+-----------------------------------------------------------------------------------------
+--only the painting of the city.
 cityDraw :: Bool -> City -> Int -> Int -> Render ()
 cityDraw grid city w h = do 
-    setSourceRGB 1 1 1
-    paint
+    setSourceRGB 1 1 1                                  --background
+    paint                                               --is painted
 
-    if grid
+    if grid                                             --read the grid var. Turn grid on/off
        then drawGrid w h
        else return()
-    mapM_ (drawStaticCell static) arayPos
+
+    mapM_ (drawStaticCell static) arayPos               --draw the static of the city
     stroke
-    mapM_ drawDynamicCell dynamic 
+    mapM_ drawDynamicCell dynamic                       --draw the dynamic of the city
     stroke
     where static = getCityStatic city
           dynamic = getCityDynamic city
           arayWidth = getCityWidth city
           arayHeight = getCityHeight city
-          arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]]
+          arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]] --builds a little helping array
 
 
 
-{- this draws the cars and the signals-}
+-- this draws the cars and the signals 
 drawDynamicCell :: (Pos,Cell) -> Render ()
 drawDynamicCell (pos,cell) = case cell of
     {(Parse.Signal ident 
@@ -144,13 +158,12 @@ drawDynamicCell (pos,cell) = case cell of
                    remainingSteps
                    workWith
                    against) -> (do if status
-                                      then setSourceRGB 0 1 0
-                                      else setSourceRGB 1 0 0
+                                      then setSourceRGB 0 1 0       -- for green colour
+                                      else setSourceRGB 1 0 0       -- for red colour
                                    drawArcFilled pos);
-     (Car ident dest iWasThere)      -> do setSourceRGB 0 0 0 
+     (Car ident dest iWasThere)      -> do setSourceRGB 0 0 0       -- black is beautifull :)
                                            drawArcFilled pos
     }
-
 
 
 
@@ -160,13 +173,13 @@ drawArcFilled (x,y) = do
         xd = fromIntegral x
         yd = fromIntegral y
     setLineWidth (s*0.1)
-    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi)
+    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi)  --0.5 for the middle of the field and s is for the space of one piece
     fill
 
 
 
-{- it draws all cell connections for the roads. And the other things like Buildings or
-   signlas and cars were drawed too-}
+{- it draws all cell connections for the roads and the buildings
+   for each static cell will be a connection to every cell, which are in the nextRoad list-}
 drawStaticCell :: [[Cell]] -> Pos -> Render ()
 drawStaticCell cellList pos = do
     let s = fromIntegral spaceCell
@@ -180,7 +193,7 @@ drawStaticCell cellList pos = do
 
 
 
-{- this one draws a nice little building in the cell, very cool!-}
+-- this one draws a nice little building in the cell, very cool!
 drawBuilding :: Pos -> Render ()
 drawBuilding (x,y) = do
     let s = fromIntegral spaceCell
@@ -196,7 +209,7 @@ drawBuilding (x,y) = do
     lineTo ((xd-0.2)*s) ((yd-0.05)*s)
 
 
--- This draws a street part of a single street field
+-- This draws a little connection from source to destination street part of a single street field
 drawStreetPart :: Pos -> Pos -> Render ()
 drawStreetPart (x1,y1) (x2,y2) = do
     let s = fromIntegral spaceCell
@@ -205,7 +218,7 @@ drawStreetPart (x1,y1) (x2,y2) = do
 
 
 
-{- it paints the grid in the City for debugging-}
+-- it paints the grid in the City for debugging or something else
 drawGrid :: Int -> Int -> Render ()
 drawGrid w h = do
   let colVal = 0.95
@@ -221,7 +234,12 @@ drawGrid w h = do
                   lineTo (fromIntegral w) (fromIntegral y)
                   stroke)  [y1*spaceCell | y1 <- [0..(div h spaceCell)]]
 
----------------------------------------------------------------
+
+
+------------------------------------------------------------------------------------------
+-- The next segment is the writing on the console and is not more used by the prog.
+-- Only for debugging necessary or for the gog old times! :D
+------------------------------------------------------------------------------------------
 {-Builds an outputstring on the console. Each row of the lists will be printed as a
   single row. The preferred Cell is in the dynamic list of the city. If there is an empty
   field, the static list will be used. If there is a signal or a car, then this it will
@@ -229,7 +247,7 @@ drawGrid w h = do
   -}
 
 
-{-it was used before the GUI was programmed
+{-
 printCity :: City -> IO()
 printCity city = putStr (printStart city (getCityWidth city) (getCityHeight city) 1 1)
 
