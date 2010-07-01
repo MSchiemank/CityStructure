@@ -1,24 +1,29 @@
 module Main where 
-import Data.List
 import Char
 import Control.Concurrent
+import Data.List
+import Data.IORef
+import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
 import qualified Graphics.UI.Gtk.Gdk.Events as Events
 import Graphics.UI.Gtk.Glade
-import Graphics.Rendering.Cairo
 import Parse
 import Run
 
 
 spaceCell = 10 ::Int
 
---Starting the programm with the main function eleven times
+--Starting the programm with the gui
 main :: IO()
 main = do file <- readFile "city"--"signalTest"--
+
+          cityIO <- newIORef $parse $doInputString file
+          c <- readIORef cityIO
+
           let i = 15--000
-              city = parse (doInputString file)
-              winW = spaceCell * (getCityWidth city)
-              winH = spaceCell * (getCityHeight city)
+              --city = parse (doInputString file)
+              winW = spaceCell * (getCityWidth c)
+              winH = spaceCell * (getCityHeight c)
 
           initGUI
           Just xml <- xmlNew "gui.glade"
@@ -28,14 +33,17 @@ main = do file <- readFile "city"--"signalTest"--
           drawarea <- xmlGetWidget xml castToDrawingArea "drawingarea"
 
           drawarea `on` sizeRequest $ return (Requisition winW winH)
-          onClicked step $putStrLn "Not implemented yet!"                
-          gridActive <- toggleButtonGetActive grid
-          onToggled grid $ do x <- toggleButtonGetActive grid
-                              if x 
-                                  then putStrLn "True"
-                                  else putStrLn "False"
+          
 
-          onExpose drawarea $cityDraw drawarea gridActive city
+          onClicked step $ do city <- readIORef cityIO
+                              modifyIORef cityIO nextStep
+                              update grid drawarea cityIO  
+
+
+          onToggled grid $ update grid drawarea cityIO
+ 
+          gridActive <- toggleButtonGetActive grid
+          onExpose drawarea $exposeDraw drawarea gridActive cityIO
 
           onDestroy window mainQuit
           widgetShowAll window
@@ -50,30 +58,45 @@ run city i = do --printCity city
                 --threadDelay 1000000--300000 getLine --
                 --run (nextStep city) (length (getCityDynamic city))--(i-1)--(length (getCityDynamic city))-}
 
+update grid drawarea cityIO = do
+    gridAct <- toggleButtonGetActive grid 
+    (w,h) <- widgetGetSize drawarea
+    drw <- widgetGetDrawWindow drawarea
+    city <- readIORef cityIO
+    renderWithDrawable drw $ cityDraw gridAct city w h
 
 
-cityDraw :: DrawingArea -> Bool -> City -> Events.Event -> IO Bool
-cityDraw draw grid city event = do
+
+
+
+exposeDraw :: DrawingArea -> Bool -> IORef City -> Events.Event -> IO Bool
+exposeDraw draw grid cityIO event = do
             (w,h) <- widgetGetSize draw
             drw <- widgetGetDrawWindow draw
-            renderWithDrawable drw $ do
-                setSourceRGB 1 1 1
-                paint
-
-                if grid
-                   then drawGrid w h
-                   else return()
-
-                mapM_ (drawStaticCell static) arayPos
-                stroke
-                mapM_ drawDynamicCell dynamic 
-                stroke
+            city <- readIORef cityIO
+            renderWithDrawable drw $cityDraw grid city w h
             return (Events.eventSent event)
-            where static = getCityStatic city
-                  dynamic = getCityDynamic city
-                  arayWidth = getCityWidth city
-                  arayHeight = getCityHeight city
-                  arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]]
+ 
+
+
+cityDraw :: Bool -> City -> Int -> Int -> Render ()
+cityDraw grid city w h = do 
+    setSourceRGB 1 1 1
+    paint
+
+    if grid
+       then drawGrid w h
+       else return()
+    mapM_ (drawStaticCell static) arayPos
+    stroke
+    mapM_ drawDynamicCell dynamic 
+    stroke
+    where static = getCityStatic city
+          dynamic = getCityDynamic city
+          arayWidth = getCityWidth city
+          arayHeight = getCityHeight city
+          arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]]
+
 
 
 {- this draws the cars and the signals-}
