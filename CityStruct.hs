@@ -75,7 +75,8 @@ main = do file <- readFile "city"--"signalTest"--
 
 
 --starts a new IO thread for the automatic          
-          forkOS (thread cityIO speedIO autoIO drawarea grid)
+          --forkOS (thread cityIO speedIO autoIO drawarea grid)
+          forkIO (thread cityIO speedIO autoIO drawarea grid 1)
 
 
           onDestroy window mainQuit
@@ -87,20 +88,21 @@ main = do file <- readFile "city"--"signalTest"--
 -----------------------------------------------------------------------------------------
 
 -- the new thread for the automatic
-thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> IO ()
-thread cityIO speedIO autoIO drawarea grid = do
+thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> Int -> IO ()
+thread cityIO speedIO autoIO drawarea grid i = do
     speed <- readIORef speedIO          --lift the IORef speedIO to int
-    auto <- readIORef autoIO            --like above
---    putStrLn "tick"
     threadDelay (div (10^6) speed)      --need more time to look?
+    auto <- readIORef autoIO            --like above
+--    putStrLn "tick "
     if auto                             --automatic or not?
         then (do city <- readIORef cityIO
-                 modifyIORef cityIO nextStep
-                 update grid drawarea cityIO)
+                 putStrLn [intToDigit $ i `mod` 10]
+                 modifyIORef cityIO nextStep      --the next step in the game
+                 widgetQueueDraw drawarea  )      -- new drawing of the drawarea
         else return ()
 
-    widgetQueueDraw drawarea            -- new drawing of the drawarea
-    thread cityIO speedIO autoIO drawarea grid        --Endless loop
+
+    thread cityIO speedIO autoIO drawarea grid ((\x -> if auto then (x+1) else x) i)       --Endless loop
 
 -----------------------------------------------------------------------------------------
 
@@ -247,8 +249,8 @@ drawGrid w h = do
   -}
 
 
-{-
-printCity :: City -> IO()
+
+{-printCity :: City -> IO()
 printCity city = putStr (printStart city (getCityWidth city) (getCityHeight city) 1 1)
 
 

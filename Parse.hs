@@ -49,7 +49,7 @@ rmNullString remove the empty lines, rmSpace remove the spaces anf rmCommentLine
 
 --creates a String without the comments and the clear lines
 doInputString :: String -> [String]
-doInputString file = do let string = stringListBeforeChar file '\n'
+doInputString file = do let string = lines file--stringListBeforeChar file '\n'
                         rmSpace (rmCommentLine (rmNullString string))
 
 
