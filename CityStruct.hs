@@ -47,7 +47,7 @@ main = do file <- readFile "city"--"signalTest"--
 -- the events with the different handlings
 
 -- resets the drawingarea to the beginnig
-          onClicked reset $ do cityIO <- newIORef $parse $doInputString file
+          onClicked reset $ do modifyIORef cityIO $do return $parse $doInputString file
                                update grid drawarea cityIO 
 
 -- starts the automatic by setting the autoIO flag
@@ -76,7 +76,7 @@ main = do file <- readFile "city"--"signalTest"--
 
 --starts a new IO thread for the automatic          
           --forkOS (thread cityIO speedIO autoIO drawarea grid)
-          forkIO (thread cityIO speedIO autoIO drawarea grid 1)
+          forkIO (thread cityIO speedIO autoIO drawarea grid)
 
 
           onDestroy window mainQuit
@@ -88,21 +88,20 @@ main = do file <- readFile "city"--"signalTest"--
 -----------------------------------------------------------------------------------------
 
 -- the new thread for the automatic
-thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> Int -> IO ()
-thread cityIO speedIO autoIO drawarea grid i = do
+thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> IO ()
+thread cityIO speedIO autoIO drawarea grid = do
     speed <- readIORef speedIO          --lift the IORef speedIO to int
     threadDelay (div (10^6) speed)      --need more time to look?
     auto <- readIORef autoIO            --like above
 --    putStrLn "tick "
     if auto                             --automatic or not?
         then (do city <- readIORef cityIO
-                 putStrLn [intToDigit $ i `mod` 10]
                  modifyIORef cityIO nextStep      --the next step in the game
                  widgetQueueDraw drawarea  )      -- new drawing of the drawarea
         else return ()
 
 
-    thread cityIO speedIO autoIO drawarea grid ((\x -> if auto then (x+1) else x) i)       --Endless loop
+    thread cityIO speedIO autoIO drawarea grid --((\x -> if auto then (x+1) else x) i)       --Endless loop
 
 -----------------------------------------------------------------------------------------
 
