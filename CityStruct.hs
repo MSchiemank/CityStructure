@@ -25,7 +25,7 @@ main = do file <- readFile "city"--"signalTest"--
 
 --set up the gui with relationships
           _ <- initGUI
-          Just xml <- xmlNew "gui2.glade"
+          Just xml <- xmlNew "gui.glade"
           window   <- xmlGetWidget xml castToWindow "window1"
           reset <- xmlGetWidget xml castToToolButton "reset"
           start <- xmlGetWidget xml castToToolButton "start"
