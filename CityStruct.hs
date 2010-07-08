@@ -1,7 +1,7 @@
 module Main where 
-import Char
+--import Char
 import Control.Concurrent
-import Data.List
+--import Data.List
 import Data.IORef
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
@@ -10,8 +10,8 @@ import Graphics.UI.Gtk.Glade
 import Parse
 import Run
 
-
-spaceCell = 10 ::Int
+spaceCell :: Int
+spaceCell = 10 
 
 --Starting the programm with the gui
 main :: IO()
@@ -37,7 +37,7 @@ main = do file <- readFile "city"--"signalTest"--
           grid <- xmlGetWidget xml castToCheckButton "gridButton"
           drawarea <- xmlGetWidget xml castToDrawingArea "drawingarea"
 
-          drawarea `on` sizeRequest $ return (Requisition winW winH)
+          _ <- on drawarea sizeRequest $ return (Requisition winW winH)
 
 --settin the speed as an IORef var and the automation flag to False.
           speed <- spinButtonGetValueAsInt speedButton
@@ -57,8 +57,7 @@ main = do file <- readFile "city"--"signalTest"--
           onClicked stop $ do modifyIORef autoIO $ do return False
 
 -- step by step the drawingarea will be changed          
-          onClicked step $ do city <- readIORef cityIO
-                              modifyIORef cityIO nextStep
+          onClicked step $ do modifyIORef cityIO nextStep
                               update grid drawarea cityIO  
 
 -- the modifying of the speedIO var           
@@ -75,7 +74,6 @@ main = do file <- readFile "city"--"signalTest"--
 
 
 --starts a new IO thread for the automatic          
-          --forkOS (thread cityIO speedIO autoIO drawarea grid)
           forkIO (thread cityIO speedIO autoIO drawarea grid)
 
 
@@ -91,12 +89,11 @@ main = do file <- readFile "city"--"signalTest"--
 thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> IO ()
 thread cityIO speedIO autoIO drawarea grid = do
     speed <- readIORef speedIO          --lift the IORef speedIO to int
-    threadDelay (div (10^6) speed)      --need more time to look?
+    threadDelay (div (1000000) speed)      --need more time to look?
     auto <- readIORef autoIO            --like above
 --    putStrLn "tick "
-    if auto                             --automatic or not?
-        then (do city <- readIORef cityIO
-                 modifyIORef cityIO nextStep      --the next step in the game
+    if auto                            --automatic or not?
+        then (do modifyIORef cityIO nextStep      --the next step in the game
                  widgetQueueDraw drawarea  )      -- new drawing of the drawarea
         else return ()
 
@@ -138,12 +135,12 @@ cityDraw grid city w h = do
        then drawGrid w h
        else return()
 
-    mapM_ (drawStaticCell static) arayPos               --draw the static of the city
+    mapM_ (drawStaticCell stat) arayPos               --draw the static of the city
     stroke
-    mapM_ drawDynamicCell dynamic                       --draw the dynamic of the city
+    mapM_ drawDynamicCell dyn                       --draw the dynamic of the city
     stroke
-    where static = getCityStatic city
-          dynamic = getCityDynamic city
+    where stat = getCityStatic city
+          dyn = getCityDynamic city
           arayWidth = getCityWidth city
           arayHeight = getCityHeight city
           arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]] --builds a little helping array
@@ -153,17 +150,17 @@ cityDraw grid city w h = do
 -- this draws the cars and the signals 
 drawDynamicCell :: (Pos,Cell) -> Render ()
 drawDynamicCell (pos,cell) = case cell of
-    {(Parse.Signal ident 
-                   status 
-                   stepToWait
-                   remainingSteps
-                   workWith
-                   against) -> (do if status
-                                      then setSourceRGB 0 1 0       -- for green colour
-                                      else setSourceRGB 1 0 0       -- for red colour
-                                   drawArcFilled pos);
-     (Car ident dest iWasThere)      -> do setSourceRGB 0 0 0       -- black is beautifull :)
-                                           drawArcFilled pos
+    {(Parse.Signal _  stat _ _ _ _) -> (do
+                             if stat
+                                then setSourceRGB 0 1 0       -- for green colour
+                                else setSourceRGB 1 0 0       -- for red colour
+                             drawArcFilled pos);
+     (Car _ _ _)      -> (do setSourceRGB 0 0 0       -- black is beautifull :)
+                             drawArcFilled pos);
+     (Road _ _ _)   -> error "No Road allowed in dynamic city list!";
+     (Building _ _) -> error "No Building allowed in dynamic city list!";
+     Empty          -> error "No Empty piece allowed in dynamic city list!"
+
     }
 
 
@@ -187,9 +184,11 @@ drawStaticCell cellList pos = do
     setSourceRGB 0 0 0
     setLineWidth (s*0.1)
     case cell of
-          { (Road ident name nextRoad)      -> mapM_ (drawStreetPart pos) nextRoad;
-            (Building ident name)           -> drawBuilding pos;
-            Empty                           -> return ()}
+          { (Road _ _ nRoad)            -> mapM_ (drawStreetPart pos) nRoad;
+            (Building _ _)              -> drawBuilding pos;
+            Empty                       -> return ();
+            (Car _ _ _)                 -> error "No cars allowed in static City list!";
+            (Parse.Signal _ _ _ _ _ _)  -> error "No signals allowed in static City list!"}
     where cell = getCell cellList pos
 
 
@@ -227,11 +226,11 @@ drawGrid w h = do
   setSourceRGB colVal colVal colVal
   setLineWidth (s*0.05)
                   
-  mapM_ (\x -> do moveTo (fromIntegral x) (fromIntegral 0)
+  mapM_ (\x -> do moveTo (fromIntegral x) 0
                   lineTo (fromIntegral x) (fromIntegral h)
                   stroke)  [x1*spaceCell | x1 <- [0..(div w spaceCell)]]
 
-  mapM_ (\y -> do moveTo (fromIntegral 0) (fromIntegral y)
+  mapM_ (\y -> do moveTo 0 (fromIntegral y)
                   lineTo (fromIntegral w) (fromIntegral y)
                   stroke)  [y1*spaceCell | y1 <- [0..(div h spaceCell)]]
 
