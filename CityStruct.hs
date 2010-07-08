@@ -1,7 +1,5 @@
 module Main where 
---import Char
 import Control.Concurrent
---import Data.List
 import Data.IORef
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
@@ -27,38 +25,57 @@ main = do file <- readFile "city"--"signalTest"--
 
 --set up the gui with relationships
           _ <- initGUI
-          Just xml <- xmlNew "gui.glade"
+          Just xml <- xmlNew "gui2.glade"
           window   <- xmlGetWidget xml castToWindow "window1"
-          reset <- xmlGetWidget xml castToButton "reset"
-          start <- xmlGetWidget xml castToButton "start"
-          stop <- xmlGetWidget xml castToButton "stop"
-          step <- xmlGetWidget xml castToButton "stepButton"
+          reset <- xmlGetWidget xml castToToolButton "reset"
+          start <- xmlGetWidget xml castToToolButton "start"
+          stop <- xmlGetWidget xml castToToolButton "stop"
+          step <- xmlGetWidget xml castToToolButton "stepButton"
           speedButton <- xmlGetWidget xml castToSpinButton "speed"
           grid <- xmlGetWidget xml castToCheckButton "gridButton"
           drawarea <- xmlGetWidget xml castToDrawingArea "drawingarea"
 
           _ <- on drawarea sizeRequest $ return (Requisition winW winH)
 
---settin the speed as an IORef var and the automation flag to False.
+-- setting the speed as an IORef var and the automation flag to False.
           speed <- spinButtonGetValueAsInt speedButton
           speedIO <- newIORef speed
           autoIO <- newIORef False
 
+
+-- setting the sensitivity of the whole buttons
+          mapM_ (flip widgetSetSensitivity False) [reset,stop]
+          mapM_ (flip widgetSetSensitivity True) [start,step]
+
 -- the events with the different handlings
 
 -- resets the drawingarea to the beginnig
-          _ <- onClicked reset $ do modifyIORef cityIO $do return $parse $doInputString file
-                                    update grid drawarea cityIO 
+          _ <- onToolButtonClicked reset $ do 
+                modifyIORef cityIO $do return $parse $doInputString file
+                modifyIORef autoIO $do return False
+                mapM_ (flip widgetSetSensitivity False) [reset,stop]
+                mapM_ (flip widgetSetSensitivity True) [start,step]
+                update grid drawarea cityIO 
 
 -- starts the automatic by setting the autoIO flag
-          _ <- onClicked start $ do modifyIORef autoIO $ do return True
+          _ <- onToolButtonClicked start $ do
+                modifyIORef autoIO $ do return True
+                mapM_ (flip widgetSetSensitivity False) [start,step]
+                mapM_ (flip widgetSetSensitivity True) [reset,stop]
 
 -- stopps the automatic 
-          _ <- onClicked stop $ do modifyIORef autoIO $ do return False
+          _ <- onToolButtonClicked stop $ do
+                modifyIORef autoIO $ do return False
+                mapM_ (flip widgetSetSensitivity False) [stop]
+                mapM_ (flip widgetSetSensitivity True) [start,step]
+
 
 -- step by step the drawingarea will be changed          
-          _ <- onClicked step $ do modifyIORef cityIO nextStep
-                                   update grid drawarea cityIO  
+          _ <- onToolButtonClicked step $ do 
+                modifyIORef cityIO nextStep
+                modifyIORef autoIO $ do return False
+                mapM_ (flip widgetSetSensitivity True) [reset]
+                update grid drawarea cityIO  
 
 -- the modifying of the speedIO var           
           _ <- onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
