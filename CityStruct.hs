@@ -26,7 +26,7 @@ main = do file <- readFile "city"--"signalTest"--
 
 
 --set up the gui with relationships
-          initGUI
+          _ <- initGUI
           Just xml <- xmlNew "gui.glade"
           window   <- xmlGetWidget xml castToWindow "window1"
           reset <- xmlGetWidget xml castToButton "reset"
@@ -47,37 +47,37 @@ main = do file <- readFile "city"--"signalTest"--
 -- the events with the different handlings
 
 -- resets the drawingarea to the beginnig
-          onClicked reset $ do modifyIORef cityIO $do return $parse $doInputString file
-                               update grid drawarea cityIO 
+          _ <- onClicked reset $ do modifyIORef cityIO $do return $parse $doInputString file
+                                    update grid drawarea cityIO 
 
 -- starts the automatic by setting the autoIO flag
-          onClicked start $ do modifyIORef autoIO $ do return True
+          _ <- onClicked start $ do modifyIORef autoIO $ do return True
 
 -- stopps the automatic 
-          onClicked stop $ do modifyIORef autoIO $ do return False
+          _ <- onClicked stop $ do modifyIORef autoIO $ do return False
 
 -- step by step the drawingarea will be changed          
-          onClicked step $ do modifyIORef cityIO nextStep
-                              update grid drawarea cityIO  
+          _ <- onClicked step $ do modifyIORef cityIO nextStep
+                                   update grid drawarea cityIO  
 
 -- the modifying of the speedIO var           
-          onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
-                                         modifyIORef speedIO (return s2)
+          _ <- onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
+                                              modifyIORef speedIO (return s2)
                         
 -- turns the gridd on and off
-          onToggled grid $ update grid drawarea cityIO
+          _ <- onToggled grid $ update grid drawarea cityIO
 
 
 -- for the first popup of the window 
           gridActive <- toggleButtonGetActive grid
-          onExpose drawarea $exposeDraw drawarea gridActive cityIO
+          _ <- onExpose drawarea $exposeDraw drawarea gridActive cityIO
 
 
 --starts a new IO thread for the automatic          
-          forkIO (thread cityIO speedIO autoIO drawarea grid)
+          _ <- forkIO (thread cityIO speedIO autoIO drawarea grid)
 
 
-          onDestroy window mainQuit
+          _ <- onDestroy window mainQuit
           widgetShowAll window
           mainGUI
 
