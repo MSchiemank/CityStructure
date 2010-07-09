@@ -7,16 +7,19 @@ import qualified Graphics.UI.Gtk.Gdk.Events as Events
 import Graphics.UI.Gtk.Glade
 import Parse
 import Run
+import System.Random
 
 spaceCell :: Int
-spaceCell = 10 
+spaceCell = 10
 
 --Starting the programm with the gui
 main :: IO()
 main = do file <- readFile "city"--"signalTest"--
 
 -- the city is now an IORef
-          cityIO <- newIORef $parse $doInputString file
+          gen <- newStdGen
+          genIO <- newIORef gen
+          cityIO <- newIORef $parse genIO $doInputString file
           c <- readIORef cityIO
 
           let winW = spaceCell * (getCityWidth c)
@@ -51,7 +54,7 @@ main = do file <- readFile "city"--"signalTest"--
 
 -- resets the drawingarea to the beginnig
           _ <- onToolButtonClicked reset $ do 
-                modifyIORef cityIO $do return $parse $doInputString file
+                modifyIORef cityIO $do return $parse genIO $doInputString file
                 modifyIORef autoIO $do return False
                 mapM_ (flip widgetSetSensitivity False) [reset,stop]
                 mapM_ (flip widgetSetSensitivity True) [start,step]
@@ -60,14 +63,14 @@ main = do file <- readFile "city"--"signalTest"--
 -- starts the automatic by setting the autoIO flag
           _ <- onToolButtonClicked start $ do
                 modifyIORef autoIO $ do return True
-                mapM_ (flip widgetSetSensitivity False) [start,step]
-                mapM_ (flip widgetSetSensitivity True) [reset,stop]
+                mapM_ (flip widgetSetSensitivity False) [reset,start,step]
+                mapM_ (flip widgetSetSensitivity True) [stop]
 
 -- stopps the automatic 
           _ <- onToolButtonClicked stop $ do
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity False) [stop]
-                mapM_ (flip widgetSetSensitivity True) [start,step]
+                mapM_ (flip widgetSetSensitivity True) [reset,start,step]
 
 
 -- step by step the drawingarea will be changed          
@@ -154,7 +157,7 @@ cityDraw grid city w h = do
 
     mapM_ (drawStaticCell stat) arayPos               --draw the static of the city
     stroke
-    mapM_ drawDynamicCell dyn                       --draw the dynamic of the city
+    mapM_ (drawDynamicCell stat) dyn                  --draw the dynamic of the city
     stroke
     where stat = getCityStatic city
           dyn = getCityDynamic city
@@ -165,15 +168,15 @@ cityDraw grid city w h = do
 
 
 -- this draws the cars and the signals 
-drawDynamicCell :: (Pos,Cell) -> Render ()
-drawDynamicCell (pos,cell) = case cell of
+drawDynamicCell :: [[Cell]] -> (Pos,Cell) -> Render ()
+drawDynamicCell staticC (pos,cell) = case cell of
     {(Parse.Signal _  stat _ _ _ _) -> (do
                              if stat
                                 then setSourceRGB 0 1 0       -- for green colour
                                 else setSourceRGB 1 0 0       -- for red colour
                              drawArcFilled pos);
-     (Car _ _ _)      -> (do setSourceRGB 0 0 0       -- black is beautifull :)
-                             drawArcFilled pos);
+     (Car _ _ oldPath (r, g, b))-> (do setSourceRGB r g b       -- draw the cars with their colours
+                                       drawTriangleFilled pos oldPath $getCell staticC pos);
      (Road _ _ _)   -> error "No Road allowed in dynamic city list!";
      (Building _ _) -> error "No Building allowed in dynamic city list!";
      Empty          -> error "No Empty piece allowed in dynamic city list!"
@@ -187,10 +190,70 @@ drawArcFilled (x,y) = do
     let s = fromIntegral spaceCell
         xd = fromIntegral x
         yd = fromIntegral y
-    setLineWidth (s*0.1)
-    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi)  --0.5 for the middle of the field and s is for the space of one piece
+--    setLineWidth (s*0.3)
+    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi)--(0.3*s) 0 (2*pi)  --0.5 for the middle of the field and s is for the space of one piece
     fill
 
+drawTriangleFilled :: Pos -> [Pos] -> Cell ->Render ()
+drawTriangleFilled (x,y) oldPos staticC = do
+    let s = fromIntegral spaceCell
+        xd = fromIntegral x
+        yd = fromIntegral y
+    setLineWidth (s*0.3)
+    if 1>(length oldPos)
+       then if nextY < y
+               then drawTriangleUp (xd,yd) s
+               else if nextX<x 
+                       then drawTriangleLeft (xd,yd) s
+                       else if nextY > y 
+                               then drawTriangleDown (xd,yd) s
+                               else drawTriangleRight (xd,yd) s
+       else if oldY < y
+               then drawTriangleDown (xd,yd) s
+               else if oldX<x 
+                       then drawTriangleRight (xd,yd) s
+                       else if oldY > y 
+                               then drawTriangleUp (xd,yd) s
+                               else drawTriangleLeft (xd,yd) s
+                                           
+    fill
+    where oldX = fst $ head $ reverse oldPos
+          oldY = snd $ head $ reverse oldPos
+          nextX = fst $ head $ (\(Road _ _ nextR) -> nextR) staticC
+          nextY = snd $ head $ (\(Road _ _ nextR) -> nextR) staticC
+
+
+-- Next four functions will draw a triangle in the known direction
+
+drawTriangleUp:: (Double, Double) -> Double -> Render ()
+drawTriangleUp (x,y) s = do
+    moveTo ((x-0.5)*s) ((y-0.9)*s)
+    lineTo ((x-0.1)*s) ((y-0.1)*s)
+    lineTo ((x-0.9)*s) ((y-0.1)*s)
+    closePath
+
+drawTriangleDown:: (Double, Double) -> Double -> Render ()
+drawTriangleDown (x,y) s = do
+    moveTo ((x-0.9)*s) ((y-0.9)*s)
+    lineTo ((x-0.1)*s) ((y-0.9)*s)
+    lineTo ((x-0.5)*s) ((y-0.1)*s)
+    closePath
+
+
+drawTriangleLeft:: (Double, Double) -> Double -> Render ()
+drawTriangleLeft (x,y) s = do
+    moveTo ((x-0.1)*s) ((y-0.9)*s)
+    lineTo ((x-0.1)*s) ((y-0.1)*s)
+    lineTo ((x-0.9)*s) ((y-0.5)*s)
+    closePath
+
+
+drawTriangleRight:: (Double, Double) -> Double -> Render ()
+drawTriangleRight (x,y) s = do
+    moveTo ((x-0.9)*s) ((y-0.9)*s)
+    lineTo ((x-0.1)*s) ((y-0.5)*s)
+    lineTo ((x-0.9)*s) ((y-0.1)*s)
+    closePath
 
 
 {- it draws all cell connections for the roads and the buildings
@@ -204,7 +267,7 @@ drawStaticCell cellList pos = do
           { (Road _ _ nRoad)            -> mapM_ (drawStreetPart pos) nRoad;
             (Building _ _)              -> drawBuilding pos;
             Empty                       -> return ();
-            (Car _ _ _)                 -> error "No cars allowed in static City list!";
+            (Car _ _ _ _)               -> error "No cars allowed in static City list!";
             (Parse.Signal _ _ _ _ _ _)  -> error "No signals allowed in static City list!"}
     where cell = getCell cellList pos
 
@@ -238,7 +301,7 @@ drawStreetPart (x1,y1) (x2,y2) = do
 -- it paints the grid in the City for debugging or something else
 drawGrid :: Int -> Int -> Render ()
 drawGrid w h = do
-  let colVal = 0.95
+  let colVal = 0.90
       s = fromIntegral spaceCell
   setSourceRGB colVal colVal colVal
   setLineWidth (s*0.05)

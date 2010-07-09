@@ -1,7 +1,11 @@
 module Parse where
 
 import Data.List
+import Data.IORef
 import Char
+import System.Random
+import Control.Monad.Trans
+import System.IO.Unsafe
 
 --Datatype setting
 data Cell = Road    { ident         :: Int,
@@ -17,11 +21,14 @@ data Cell = Road    { ident         :: Int,
                       against       :: [Pos]}
           | Car     { ident         :: Int,
                       dest          :: Pos,
-                      iWasThere     :: [Pos]}
+                      iWasThere     :: [Pos],
+                      colour        :: RGB}
           | Empty {}
      deriving (Eq, Show)
 
 type Pos = (Int, Int)
+type RGB = (Double, Double, Double)
+
 data City = City { width              :: Int,
                    height             :: Int,
                    static             :: [[Cell]],
@@ -73,14 +80,14 @@ stringListBreakAt string char = lines $ map (\x -> if x == char then '\n' else x
   and the cars. In the data City will be stored the dimensions and two lists. First list
   contain the streets and the buildings. The second list contain the signals and the
   cars.-}
-parse :: [String] -> City
-parse s = do buildCity cityW cityH (roadCells++buildingCells) (signalCells++carCells)
-             where cityW = getDim s "width="
-                   cityH = getDim s "height="
-                   roadCells = concat $map generateRoad (searchRows s ":Roads")
-                   buildingCells = map generateBuilding (searchRows s ":Buildings")
-                   signalCells = generateSignals (searchRows s ":Signals")
-                   carCells = map (generateCarList  buildingCells roadCells) (searchRows s ":Cars")
+parse :: IORef StdGen -> [String] -> City
+parse genIO s = do buildCity cityW cityH (roadCells++buildingCells) (signalCells++carCells)
+                   where cityW = getDim s "width="
+                         cityH = getDim s "height="
+                         roadCells = concat $map generateRoad (searchRows s ":Roads")
+                         buildingCells = map generateBuilding (searchRows s ":Buildings")
+                         signalCells = generateSignals (searchRows s ":Signals")
+                         carCells = map (generateCarList  buildingCells roadCells genIO) (searchRows s ":Cars")
 
 -- returns the width or the height of the city
 getDim :: [String] -> String -> Int
@@ -141,10 +148,10 @@ fillRoadCell i s pos = concat $ map (findNextRoad i s) pos
 
 findNextRoad :: Int -> String -> [Pos] -> [(Pos, Cell)]
 findNextRoad _ _ [] = []
-findNextRoad i s (pos:xs) = (pos, Road i s next) : findNextRoad i s xs
-                             where next = if null(xs)
-                                             then []
-                                             else [head xs]
+findNextRoad i s (pos:xs) = (pos, Road i s nextR) : findNextRoad i s xs
+                             where nextR = if null(xs)
+                                              then []
+                                              else [head xs]
 
 -----------------------------------------------------------------------------------
 
@@ -217,10 +224,8 @@ buildRelationships ((xy,Signal idS st sA sR _ _, wId, aId):xs) l =
     [(xy, Signal {ident=idS, status = st, stepToWait=sA, remainingSteps= sR, workWith = with, against = workAgainst})] ++ buildRelationships xs l
     where with = map (findPartner l) wId
           workAgainst = map (findPartner l) aId
-buildRelationships ((_, Road _ _ _, _, _) : _) _ = error "Not a Signal in buildRelationships!"
-buildRelationships ((_, Building _ _, _, _) : _) _ = error "Not a Signal in buildRelationships!"
-buildRelationships ((_, Car _ _ _, _, _) : _) _ = error "Not a Signal in buildRelationships!"
-buildRelationships ((_, Empty, _, _) : _) _ = error "Not a Signal in buildRelationships!"
+buildRelationships ((_, _, _, _) : _) _ = error "Not a Signal in buildRelationships!"
+
 
 --find the partner cell with the id in the second list named ids and 
 --returns the position coordinates
@@ -239,14 +244,42 @@ findPartner cell identSig =
   it will be searching the nearest road of the house. This roadpiece will be the start
   position of the car. Then the path of the car will be calculated
   with the function makePath. After all the cell will be created-}
-generateCarList :: [(Pos, Cell)] -> [(Pos, Cell)] -> String -> (Pos, Cell)
-generateCarList building roads x =
-                 (pos, Car idR end [])
-                           where a = stringListBreakAt x ';'
-                                 idR = read (head a) ::Int
-                                 pos = findPos building roads (a!!1)
-                                 end = findPos building roads (a!!2)
-                                 
+generateCarList :: [(Pos, Cell)] -> [(Pos, Cell)] -> IORef StdGen -> String -> (Pos, Cell)
+generateCarList building roads genIO x = do
+    
+    (pos, (Car idR end [] col))
+    where a = stringListBreakAt x ';'
+          idR = read (head a) ::Int
+          pos = findPos building roads (a!!1)
+          end = findPos building roads (a!!2)
+          col = darkerColours $genRandomColour genIO
+
+
+
+-- it generates a random tuple with rgb values. Therefore it takes a standart generator
+-- and generates new double values and a new generator
+genRandomColour :: IORef StdGen -> (Double, Double, Double)
+genRandomColour genIO = 
+    unsafePerformIO $liftIO $ do
+    gen <- readIORef genIO
+    let r = randomR (0,1::Double) gen
+        g = randomR (0,1::Double) $snd r
+        b = randomR (0,1::Double) $snd g
+    modifyIORef genIO (\_ -> snd b)
+    return (fst r,fst g,fst b)
+
+
+
+-- rebuild the colour values, if they are to brightly
+darkerColours ::(Double, Double, Double) -> (Double, Double, Double)
+darkerColours (r, g, b) = 
+    if((r+b+g) *0.33)> barrier
+        then (r-comp, g-comp, b-comp)
+        else (r, g, b)
+    where comp = 1-barrier
+          barrier = 0.725
+
+
 
 {- Extract the id of the house or the starting positon tuple-}
 findPos ::  [(Pos, Cell)] -> [(Pos, Cell)] -> String -> Pos
@@ -304,9 +337,7 @@ returnCellXY x y list =
        else case (head cellList) of 
                  { (_, Building identB nameB)     -> Building identB nameB;
                    (_, Road _ _ _ )-> buildDeadEndRoadJunction cellList list;
-                   (_, Signal _ _ _ _ _ _) -> error "No dynamic Cells in returnCellXY!";
-                   (_, Car _ _ _) -> error "No dynamic Cells in returnCellXY!";
-                   (_, Empty) -> error "No empty cells in returnCellXY!"
+                   (_, _) -> error "No dynamic Cells in returnCellXY!"
                  }
     where cellList = filter (\((x1,y1), _) -> x1==x && y1 == y) list
 
@@ -324,13 +355,13 @@ buildDeadEndRoadJunction cellList list = if length cellList == 1
 buildDeadEnd :: [(Pos,Cell)] -> (Pos,Cell) -> Cell
 buildDeadEnd list ((x,y), Road idR nameR roadPath) = 
     if null roadPath
-       then Road idR nameR [next]
+       then Road idR nameR [nextR]
        else Road idR nameR roadPath
     where nearestStreetCells = filter (\((x1,y1),_) -> (x1==x-1 || x1==x+1)&& y1==y 
                                                     || x1==x&&(y1==y-1 || y1==y+1)) list -- returns the four cells in the neighborhood.
           onlyThisStreetCells = filter (\(_, Road identR _ _) -> identR == idR) nearestStreetCells --returns a list with neighbors with the same streetids
           notBeforeThisCell = filter (\(_, Road _ _ path) -> (head path) /= (x,y)) onlyThisStreetCells -- filters out the cell, which point on the current cell
-          next = (\(pos,_) -> pos) (head notBeforeThisCell)  -- next must be only one cell
+          nextR = (\(pos,_) -> pos) (head notBeforeThisCell)  -- next must be only one cell
 buildDeadEnd _ _ = error "Cell must be a road cell in buildDeadEnd!"
 
 

@@ -26,11 +26,11 @@ rightBeforeLeft (x:xs) = (returnOldPos x, remLastPos x):xs
 
 
 returnOldPos :: (Pos,Cell) -> Pos
-returnOldPos (_,Car _ _ oldPath) = head $reverse oldPath
+returnOldPos (_,Car _ _ oldPath _) = head $reverse oldPath
 returnOldPos (_,_) = error "Must be a car cell in returnOldPos!"
 
 remLastPos :: (Pos,Cell) -> Cell
-remLastPos (_,Car idC destC oldPath) = Car idC destC $ reverse $ tail $ reverse oldPath
+remLastPos (_,Car idC destC oldPath col) = Car idC destC ( reverse $ tail $ reverse oldPath) col
 remLastPos (_,_) = error "Must be a car cell in remLastPos!"
 
 
@@ -46,7 +46,7 @@ nextCarsAndSignals :: [[Cell]] -> [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
 nextCarsAndSignals staticC dynamicC (pos, cell) =
     case cell of 
          { (Signal _ _ _ _ _ _) -> signalStatus (pos, cell);
-           (Car _ _ _)          -> checkSignal staticC dynamicC pos cell;
+           (Car _ _ _ _)        -> checkSignal staticC dynamicC pos cell;
            (_)                  -> error "Must be a signal or car cell in nextCarsAndSignals!"
          }
 
@@ -96,16 +96,16 @@ getCell cell (x,y) = (cell!!(y-1))!!(x-1)
 
 -- Remove the car, if its on the destination or in the neighborhood.
 carStep :: [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell -> (Pos,Cell)
-carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld) =
+carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
     if (xa,ya) == (xd,yd) || 
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
-       then ((-1,-1), Car {ident=0, dest=(-1,-1), iWasThere=[] }) --car is on his destination
+       then ((-1,-1), Car {ident=0, dest=(-1,-1), iWasThere=[], colour=col}) --car is on his destination
        else if length (filter (\(pos,_) -> pos==next) dyn) > 0    --if a car is on the next field
-               then ((xa,ya), Car idC (xd,yd) pathOld)                --then it will remain on the current place
+               then ((xa,ya), Car idC (xd,yd) pathOld col)                --then it will remain on the current place
                else if next == (-1,-1)
-                       then ((xa,ya), Car idC (xd,yd) [])           --car has lost it's way
-                       else (next, Car idC (xd,yd) (pathOld++[(xa,ya)]))      --otherwise it will move on
+                       then ((xa,ya), Car idC (xd,yd) [] col)           --car has lost it's way
+                       else (next, Car idC (xd,yd) (pathOld++[(xa,ya)]) col)      --otherwise it will move on
     where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) pathOld
 
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
