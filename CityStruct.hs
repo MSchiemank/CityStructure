@@ -10,10 +10,8 @@ import Run
 import System.Random
 
 
-
-
 spaceCell :: Int
-spaceCell = 10
+spaceCell = 7
 
 --Starting the programm with the gui
 main :: IO()
@@ -25,9 +23,14 @@ main = do file <- readFile "city"--"rightTest"--"signalTest"--
           cityIO <- newIORef $parse genIO $doInputString file
           c <- readIORef cityIO
 
-          let winW = spaceCell * (getCityWidth c)
-              winH = spaceCell * (getCityHeight c)
-
+          let fieldWidth = getCityWidth c
+              fieldHeight = getCityHeight c
+              winW = if 380< spaceCell * fieldWidth
+                        then spaceCell * fieldWidth
+                        else 380
+              winH = if 150< spaceCell * fieldHeight
+                        then spaceCell * fieldHeight
+                        else 150
 
 --set up the gui with relationships
           _ <- initGUI
@@ -61,7 +64,7 @@ main = do file <- readFile "city"--"rightTest"--"signalTest"--
                 modifyIORef autoIO $do return False
                 mapM_ (flip widgetSetSensitivity False) [reset,stop]
                 mapM_ (flip widgetSetSensitivity True) [start,step]
-                update grid drawarea cityIO 
+                update grid drawarea cityIO fieldWidth fieldHeight
 
 -- starts the automatic by setting the autoIO flag
           _ <- onToolButtonClicked start $ do
@@ -81,19 +84,19 @@ main = do file <- readFile "city"--"rightTest"--"signalTest"--
                 modifyIORef cityIO nextStep
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity True) [reset]
-                update grid drawarea cityIO  
+                update grid drawarea cityIO fieldWidth fieldHeight
 
 -- the modifying of the speedIO var           
           _ <- onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
                                               modifyIORef speedIO (return s2)
                         
 -- turns the gridd on and off
-          _ <- onToggled grid $ update grid drawarea cityIO
+          _ <- onToggled grid $ update grid drawarea cityIO fieldWidth fieldHeight
 
 
 -- for the first popup of the window 
           gridActive <- toggleButtonGetActive grid
-          _ <- onExpose drawarea $exposeDraw drawarea gridActive cityIO
+          _ <- onExpose drawarea $exposeDraw drawarea gridActive cityIO fieldWidth fieldHeight
 
 
 --starts a new IO thread for the automatic          
@@ -125,44 +128,47 @@ thread cityIO speedIO autoIO drawarea grid = do
 
 -----------------------------------------------------------------------------------------
 
--- used when reset or step button are pushed. I don't like to lift the IO Monad
-update :: CheckButton -> DrawingArea -> IORef City -> IO ()
-update grid drawarea cityIO = do
+-- used when reset or step button are pushed. 
+update :: CheckButton -> DrawingArea -> IORef City -> Int -> Int -> IO ()
+update grid drawarea cityIO fieldW fieldH = do
     gridAct <- toggleButtonGetActive grid 
     (w,h) <- widgetGetSize drawarea
     drw <- widgetGetDrawWindow drawarea
     city <- readIORef cityIO
-    renderWithDrawable drw $ cityDraw gridAct city w h
+    let space = minimum [div w fieldW, div h fieldH]
+    renderWithDrawable drw $ cityDraw gridAct city space w h
 
 
 
 
 -- used only on expose event.
-exposeDraw :: DrawingArea -> Bool -> IORef City -> Events.Event -> IO Bool
-exposeDraw draw grid cityIO event = do
+exposeDraw :: DrawingArea -> Bool -> IORef City -> Int -> Int ->  Events.Event -> IO Bool
+exposeDraw draw grid cityIO fieldW fieldH event = do
             (w,h) <- widgetGetSize draw
             drw <- widgetGetDrawWindow draw
             city <- readIORef cityIO
-            renderWithDrawable drw $cityDraw grid city w h
+            let space = minimum [div w fieldW, div h fieldH]
+            renderWithDrawable drw $cityDraw grid city space w h
             return (Events.eventSent event)
  
 
 -----------------------------------------------------------------------------------------
 --only the painting of the city.
-cityDraw :: Bool -> City -> Int -> Int -> Render ()
-cityDraw grid city w h = do 
+cityDraw :: Bool -> City -> Int -> Int -> Int -> Render ()
+cityDraw grid city space w h = do 
     setSourceRGB 1 1 1                                  --background
     paint                                               --is painted
 
     if grid                                             --read the grid var. Turn grid on/off
-       then drawGrid w h
+       then drawGrid space w h
        else return()
 
-    mapM_ (drawStaticCell stat) arayPos               --draw the static of the city
+    mapM_ (drawStaticCell stat space) arayPos         --draw the static of the city
     stroke
-    mapM_ (drawDynamicCell stat) dyn                  --draw the dynamic of the city
+    mapM_ (drawDynamicCell stat space) dyn            --draw the dynamic of the city
     stroke
-    where stat = getCityStatic city
+    where 
+          stat = getCityStatic city
           dyn = getCityDynamic city
           arayWidth = getCityWidth city
           arayHeight = getCityHeight city
@@ -171,15 +177,16 @@ cityDraw grid city w h = do
 
 
 -- this draws the cars and the signals 
-drawDynamicCell :: [[Cell]] -> (Pos,Cell) -> Render ()
-drawDynamicCell staticC (pos,cell) = case cell of
+drawDynamicCell :: [[Cell]] -> Int -> (Pos,Cell) -> Render ()
+drawDynamicCell staticC space (pos,cell) = case cell of
     {(Parse.Signal _  stat _ _ _ _) -> (do
                              if stat
                                 then setSourceRGB 0 1 0       -- for green colour
                                 else setSourceRGB 1 0 0       -- for red colour
-                             drawArcFilled pos);
-     (Car _ _ oldPath (r, g, b))-> (do setSourceRGB r g b       -- draw the cars with their colours
-                                       drawTriangleFilled pos oldPath $getCell staticC pos);
+                             drawArcFilled pos space);
+     (Car _ _ oldPath (r, g, b))-> (do 
+            setSourceRGB r g b       -- draw the cars with their colours
+            drawTriangleFilled pos oldPath space $getCell staticC pos);
      (Road _ _ _)   -> error "No Road allowed in dynamic city list!";
      (Building _ _) -> error "No Building allowed in dynamic city list!";
      Empty          -> error "No Empty piece allowed in dynamic city list!"
@@ -188,18 +195,18 @@ drawDynamicCell staticC (pos,cell) = case cell of
 
 
 
-drawArcFilled :: Pos -> Render ()
-drawArcFilled (x,y) = do
-    let s = fromIntegral spaceCell
+drawArcFilled :: Pos -> Int -> Render ()
+drawArcFilled (x,y) space = do
+    let s = fromIntegral space
         xd = fromIntegral x
         yd = fromIntegral y
 --    setLineWidth (s*0.3)
-    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi)--(0.3*s) 0 (2*pi)  --0.5 for the middle of the field and s is for the space of one piece
+    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi) --0.5 for the middle of the field and s is for the space of one piece
     fill
 
-drawTriangleFilled :: Pos -> [Pos] -> Cell ->Render ()
-drawTriangleFilled (x,y) oldPos staticC = do
-    let s = fromIntegral spaceCell
+drawTriangleFilled :: Pos -> [Pos] -> Int -> Cell -> Render ()
+drawTriangleFilled (x,y) oldPos space staticC = do
+    let s = fromIntegral space
         xd = fromIntegral x
         yd = fromIntegral y
     setLineWidth (s*0.3)
@@ -261,14 +268,14 @@ drawTriangleRight (x,y) s = do
 
 {- it draws all cell connections for the roads and the buildings
    for each static cell will be a connection to every cell, which are in the nextRoad list-}
-drawStaticCell :: [[Cell]] -> Pos -> Render ()
-drawStaticCell cellList pos = do
-    let s = fromIntegral spaceCell
+drawStaticCell :: [[Cell]] -> Int -> Pos -> Render ()
+drawStaticCell cellList space pos = do
+    let s = fromIntegral space
     setSourceRGB 0 0 0
     setLineWidth (s*0.1)
     case cell of
-          { (Road _ _ nRoad)            -> mapM_ (drawStreetPart pos) nRoad;
-            (Building _ _)              -> drawBuilding pos;
+          { (Road _ _ nRoad)            -> mapM_ (drawStreetPart space pos) nRoad;
+            (Building _ _)              -> drawBuilding space pos;
             Empty                       -> return ();
             (Car _ _ _ _)               -> error "No cars allowed in static City list!";
             (Parse.Signal _ _ _ _ _ _)  -> error "No signals allowed in static City list!"}
@@ -277,9 +284,9 @@ drawStaticCell cellList pos = do
 
 
 -- this one draws a nice little building in the cell, very cool!
-drawBuilding :: Pos -> Render ()
-drawBuilding (x,y) = do
-    let s = fromIntegral spaceCell
+drawBuilding :: Int -> Pos -> Render ()
+drawBuilding space (x,y) = do
+    let s = fromIntegral space
         xd = fromIntegral x
         yd = fromIntegral y
     setSourceRGB 0 0 0
@@ -293,29 +300,32 @@ drawBuilding (x,y) = do
 
 
 -- This draws a little connection from source to destination street part of a single street field
-drawStreetPart :: Pos -> Pos -> Render ()
-drawStreetPart (x1,y1) (x2,y2) = do
-    let s = fromIntegral spaceCell
+drawStreetPart :: Int -> Pos -> Pos -> Render ()
+drawStreetPart space (x1,y1) (x2,y2) = do
+    let s = fromIntegral space
     moveTo (s*((fromIntegral x1)-0.5)) (s*((fromIntegral y1)-0.5))
     lineTo (s*((fromIntegral x2)-0.5)) (s*((fromIntegral y2)-0.5)) 
 
 
 
 -- it paints the grid in the City for debugging or something else
-drawGrid :: Int -> Int -> Render ()
-drawGrid w h = do
+drawGrid :: Int -> Int -> Int -> Render ()
+drawGrid space w h = do
   let colVal = 0.90
-      s = fromIntegral spaceCell
+      s = fromIntegral space
+
   setSourceRGB colVal colVal colVal
   setLineWidth (s*0.05)
-                  
+
+-- vertical lines                  
   mapM_ (\x -> do moveTo (fromIntegral x) 0
                   lineTo (fromIntegral x) (fromIntegral h)
-                  stroke)  [x1*spaceCell | x1 <- [0..(div w spaceCell)]]
+                  stroke)  [x1*space | x1 <- [0..(div w space)]]
 
+-- horizontal lines
   mapM_ (\y -> do moveTo 0 (fromIntegral y)
                   lineTo (fromIntegral w) (fromIntegral y)
-                  stroke)  [y1*spaceCell | y1 <- [0..(div h spaceCell)]]
+                  stroke)  [y1*space | y1 <- [0..(div h space)]]
 
 
 
