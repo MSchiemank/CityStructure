@@ -9,12 +9,15 @@ import Parse
 import Run
 import System.Random
 
+
+
+
 spaceCell :: Int
 spaceCell = 10
 
 --Starting the programm with the gui
 main :: IO()
-main = do file <- readFile "city"--"signalTest"--
+main = do file <- readFile "city"--"rightTest"--"signalTest"--
 
 -- the city is now an IORef
           gen <- newStdGen
@@ -200,7 +203,7 @@ drawTriangleFilled (x,y) oldPos staticC = do
         xd = fromIntegral x
         yd = fromIntegral y
     setLineWidth (s*0.3)
-    if 1>(length oldPos)
+    if null oldPos
        then if nextY < y
                then drawTriangleUp (xd,yd) s
                else if nextX<x 
@@ -318,7 +321,7 @@ drawGrid w h = do
 
 ------------------------------------------------------------------------------------------
 -- The next segment is the writing on the console and is not more used by the prog.
--- Only for debugging necessary or for the gog old times! :D
+-- Only for debugging necessary or for the god old times! :D
 ------------------------------------------------------------------------------------------
 {-Builds an outputstring on the console. Each row of the lists will be printed as a
   single row. The preferred Cell is in the dynamic list of the city. If there is an empty
@@ -326,9 +329,26 @@ drawGrid w h = do
   be printed. 
   -}
 
+{-test genIO file= --do file <- readFile "city"--"signalTest"--
+          parse genIO (doInputString file)
+--          let i = 15--000
+--          gen <- newStdGen
+--          genIO <- newIORef gen
+--          return ()
+--          run (parse genIO (doInputString file)) i
 
 
-{-printCity :: City -> IO()
+run :: City -> Int -> IO()
+run _ 4 = return ()
+run city i = do 
+--                printCity city
+--                threadDelay 1000000--300000 getLine --
+                return ()
+                --run (nextStep city) (length (getCityDynamic city))--(i-1)--(length (getCityDynamic city))
+
+
+
+printCity :: City -> IO()
 printCity city = putStr (printStart city (getCityWidth city) (getCityHeight city) 1 1)
 
 
@@ -358,7 +378,7 @@ cellToChar cell pos =
                                                   else '\x271B';
             (Building ident name)           -> ' ';
             (Parse.Signal ident status stepToWait remainingSteps workWith against) -> signalSign status;
-            (Car ident dest iWasThere)      -> 'A';
+            (Car ident dest iWasThere _)      -> 'A';
             Empty                           -> ' '
           }
 

@@ -204,7 +204,7 @@ genListCell x = (head pos, (Signal idSig statusSig step step [] []), wW, wA)
 --makes the relationship id's from a string to an integer list
 getIntRel :: String -> [Int]
 getIntRel s = map readI (stringListBreakAt withoutBrakets ',') 
-              where withoutBrakets = filter (\x -> x /= '[' || x /= ']') s
+              where withoutBrakets = filter (\x -> x /= '[' && x /= ']') s
 
 
 --returns an integer from a String

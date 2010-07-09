@@ -2,36 +2,90 @@ module Run where
 import Parse
 import Data.List
 
+
 {- The nextStep is first to generate a new dynamic list, with the moving cars on the next
    point in the City and the switching signals.Out of this a new city will be generated.-}
 nextStep :: City -> City
-nextStep city = City {width  = getCityWidth  city,
-                      height = getCityHeight city,
-                      static = getCityStatic city,
-                      dynamic = allCarsWithoutTwoOnOneCell}
-                where withDouble = filter (\(pos,_) -> pos /= (-1,-1)) (map (nextCarsAndSignals (getCityStatic city) dyn) dyn) --build the next way of all cars (-1,-1) are on their destination
-                      dyn = getCityDynamic city
-                      searchDoubleForEachCell = map (\(pos1,_) -> filter (\(pos,_) -> pos == pos1) withDouble) withDouble --returns a list like that: [[pos1,pos2],[pos3],[pos4]...]
-                      extractDouble = nub $ filter (\x -> length x >1) searchDoubleForEachCell     --extract the double cars on one Cell
-                      allCarsWithoutTwoOnOneCell = concat (map rightBeforeLeft extractDouble)++(withDouble\\(concat extractDouble)) --this will correct the two cars on one cell phenomenon
+nextStep city =
+    City {width  = getCityWidth  city,
+          height = getCityHeight city,
+          static = getCityStatic city,
+          dynamic = allCarsWithoutTwoOnOneCell}
+    where 
+          dyn = getCityDynamic city
+          -- build the next way of all cars
+          allNextCars = (map (nextCarsAndSignals (getCityStatic city) dyn) dyn) 
+          -- cars with position (-1,-1) are on their destination and 
+          -- are filtered out
+          withDoubleCars = filter (\(pos,_) -> pos /= (-1,-1)) allNextCars
+          --returns a list like that: [[pos1,pos2],[pos3],[pos4]...]
+          searchDoubleForEachCell = map (\(pos1,_) -> carDoubleSearch pos1) withDoubleCars 
+          carDoubleSearch :: Pos -> [(Pos,Cell)]
+          carDoubleSearch pos1 = filter (\(pos,_) -> pos == pos1) withDoubleCars
+          --extract the double cars on one Cell
+          extractDouble = nub $ filter (\x -> length x >1) searchDoubleForEachCell
+          --this will correct the two cars on one cell phenomenon
+          allCarsWithoutTwoOnOneCell = concat noTwoCarsOnPlace ++ noDoubleCarsInside
+          noTwoCarsOnPlace = map rightBeforeLeft extractDouble
+          noDoubleCarsInside = withDoubleCars\\(concat extractDouble) 
 
 
                       
 -- returns the old position of the first car on the cell, the other car moves on
 -- will be used, if two cars are on one cell.
 rightBeforeLeft :: [(Pos,Cell)] -> [(Pos,Cell)]
-rightBeforeLeft [] = []
-rightBeforeLeft (x:xs) = (returnOldPos x, remLastPos x):xs
+rightBeforeLeft cars = 
+    if (length cars)==2 
+        then whereIsTheRightOfTheCar firstCar secondCar :
+             whereIsTheRightOfTheCar secondCar firstCar : []
+        else error "More ore less than two cars on one roadcell in rightBeforeLeft!"
+    where
+          firstCar = cars!!0
+          secondCar = cars!!1
+ 
+
+whereIsTheRightOfTheCar :: (Pos,Cell) -> (Pos,Cell) -> (Pos,Cell)
+whereIsTheRightOfTheCar car1 car2 =
+    -- first time is, that a car comes from the top
+    if xCar1==oldXCar1 
+        then if yCar1>oldYCar1
+                then showRight (xCar1-1,yCar1) car1 car2
+    -- second time is, that a car comes from the bottom
+                else showRight (xCar1+1, yCar1) car1 car2
+    -- third time is, that a car comes from the left side
+        else if xCar1>oldXCar1
+                then showRight (xCar1, yCar1+1) car1 car2
+    -- fourth time is, that a car comes from the right side
+                else showRight (xCar1, yCar1-1) car1 car2
+    where 
+          oldPosFirstCar = (\(Car _ _ old _) -> head $reverse old) $snd car1
+          posCar1 = fst car1
+          xCar1 = fst posCar1
+          yCar1 = snd posCar1
+          oldXCar1 = fst oldPosFirstCar
+          oldYCar1 = snd oldPosFirstCar
+
+
+
+-- shows on the right side of a car, if there is another car.
+showRight :: Pos -> (Pos, Cell) -> (Pos, Cell) -> (Pos, Cell)
+showRight rightPos car1 car2 =
+    if rightPos==oldPosCar2
+       then (returnOldPos car1, remLastPos car1)
+       else car1
+    where 
+          oldPosCar2 = (\(Car _ _ old _) -> head $reverse old) $snd car2
 
 
 
 returnOldPos :: (Pos,Cell) -> Pos
 returnOldPos (_,Car _ _ oldPath _) = head $reverse oldPath
-returnOldPos (_,_) = error "Must be a car cell in returnOldPos!"
+returnOldPos _ = error "Must be a car cell in returnOldPos!"
 
 remLastPos :: (Pos,Cell) -> Cell
-remLastPos (_,Car idC destC oldPath col) = Car idC destC ( reverse $ tail $ reverse oldPath) col
-remLastPos (_,_) = error "Must be a car cell in remLastPos!"
+remLastPos (_,Car idC destC oldPath col) =
+    Car idC destC ( reverse $ tail $ reverse oldPath) col
+remLastPos _ = error "Must be a car cell in remLastPos!"
 
 
 
@@ -70,8 +124,10 @@ signalStatus (pos, Signal idS stat step remainingStep wW wA) =
 signalStatus (_,_) = error "Must be a signal cell in signalStatus!"
 
 
-{- checks, if the next or the next but one roadpiece is a junction. If thats true, the status of the signal will be checked.
-   If signal shows red, then the car will remain on the position, otherwise it will move forward.-}
+-- Checks, if the next or the next but one roadpiece is a junction.
+-- If thats true, the status of the signal will be checked.
+-- If signal shows red, then the car will remain on the position, otherwise
+-- it will move forward.
 checkSignal ::  [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell ->  (Pos, Cell)
 checkSignal stat dyn (x,y) cell =
     if length nextButOnePos > 1 || length nextButTwoPos > 1
@@ -81,12 +137,14 @@ checkSignal stat dyn (x,y) cell =
                        else ((x,y),cell)
                else carStep stat dyn (x,y) cell
        else carStep stat dyn (x,y) cell
-    where nextPos = head((\(Road _ _ next) -> next) (getCell stat (x,y)))
+    where 
+          nextPos = head((\(Road _ _ next) -> next) (getCell stat (x,y)))
           nextButOnePos = (\(Road _ _ next) -> next) (getCell stat nextPos)
-          nextButTwoPos = map (\(Road _ _ next) -> next) $ map (getCell stat) nextButOnePos
+          nextButTwoPos = map (\(Road _ _ next) -> next) nextButTwoRoads 
+          nextButTwoRoads = map (getCell stat) nextButOnePos
           allSignals = filter (\(_,cell1) -> case cell1 of 
-                                                  {(Signal _ _ _ _ _ _) -> True;
-                                                   _ -> False}) dyn
+                                 {(Signal _ _ _ _ _ _) -> True;
+                                  _                    -> False}) dyn
           nearestSignal = filter (\((x1,y1),_) -> x1==x && (y1==y-1 || y1==y+1) ||
                                                   y1==y && (x1==x-1 || x1==x+1)) allSignals
 
