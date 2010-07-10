@@ -39,7 +39,8 @@ main = do
                  Nothing        -> error $ "can't find the glade file \"gui.glade\""
                                            ++ "in the current directory"
           mainWindow   <- xmlGetWidget xml castToWindow "window1"
-          open <- xmlGetWidget xml castToToolButton"open"
+          open <- xmlGetWidget xml castToToolButton "open"
+          save <- xmlGetWidget xml castToToolButton "save"
           reset <- xmlGetWidget xml castToToolButton "reset"
           start <- xmlGetWidget xml castToToolButton "start"
           stop <- xmlGetWidget xml castToToolButton "stop"
@@ -56,7 +57,8 @@ main = do
           genIO <- newIORef gen
 
 -- initialised the file variable as IORefs
-          filePathIO <- newIORef ""
+          fileOpenPathIO <- newIORef ""
+          fileSavePathIO <- newIORef ""
           fileIO <- newIORef ""
 -- the city is now an empty City in IORef
           cityIO <- newIORef emptyCity 
@@ -90,8 +92,8 @@ main = do
 -- as an IORef City var, the drawingarea will be resized, the buttons will be 
 -- activated and the drawingarea will be painted.
           _ <- onToolButtonClicked open $do 
-                    openOpenFileDialog mainWindow filePathIO
-                    filePath <- readIORef filePathIO
+                    openFileDialog mainWindow fileOpenPathIO
+                    filePath <- readIORef fileOpenPathIO
                     if null filePath
                        then return ()
                        else (do 
@@ -110,6 +112,18 @@ main = do
                                 mapM_ (flip widgetSetSensitivity True) [start,step]
                                 -- city will be painted
                                 update grid drawarea cityIO)
+
+
+
+
+
+-- The saveFileDialog
+          _ <- onToolButtonClicked save $do
+                    saveFileDialog mainWindow fileSavePathIO
+                    fileSavePath <- readIORef fileSavePathIO
+                    file <- readIORef fileIO
+                    writeFile fileSavePath file
+
 
 
 -- resets the drawingarea to the beginnig
@@ -404,9 +418,9 @@ drawGrid space w h = do
                   lineTo (fromIntegral w) (fromIntegral y)
                   stroke)  [y1*space | y1 <- [0..(div h space)]]
 
--------------------------------- < openOpenFileDialog > ----------------------------------
-openOpenFileDialog :: Window -> IORef String -> IO ()
-openOpenFileDialog parentWindow filePathIO = do
+-------------------------------- < openFileDialog > ----------------------------------
+openFileDialog :: Window -> IORef String -> IO ()
+openFileDialog parentWindow fileOpenPathIO = do
     dialog <- fileChooserDialogNew 
                     (Just "Select a City")              -- title of the window
                     (Just parentWindow)                 -- the parent window
@@ -422,11 +436,37 @@ openOpenFileDialog parentWindow filePathIO = do
                                   let path = case filePath of
                                         (Just s   ) -> s
                                         Nothing     -> error "Error on ResponseAccept in "++
-                                                       "openOpenFileDialog"
-                                  modifyIORef filePathIO (\_ -> path)
+                                                       "openFileDialog"
+                                  modifyIORef fileOpenPathIO (\_ -> path)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
-        _                   -> error "Wrong response in openOpenFileDialog!"
+        _                   -> error "Wrong response in openFileDialog!"
+    widgetHide dialog
+    
+
+-------------------------------- < saveFileDialog > ----------------------------------
+saveFileDialog :: Window -> IORef String -> IO ()
+saveFileDialog parentWindow fileSavePathIO = do
+    dialog <- fileChooserDialogNew 
+                    (Just "Select a City")              -- title of the window
+                    (Just parentWindow)                 -- the parent window
+                    FileChooserActionOpen               -- the kind of dialog we want
+                    [("gtk-cancel"                      -- the buttons to display
+	                 , ResponseCancel)
+	                 ,("gtk-open"                                  
+	                 , ResponseAccept)]
+    widgetShow dialog
+    resp <- dialogRun dialog
+    case resp of
+        ResponseAccept      -> do filePath <- fileChooserGetFilename dialog
+                                  let path = case filePath of
+                                        (Just s   ) -> s
+                                        Nothing     -> error "Error on ResponseAccept in "++
+                                                       "openFileDialog"
+                                  modifyIORef fileSavePathIO (\_ -> path)
+        ResponseCancel      -> return ()
+        ResponseDeleteEvent -> return ()
+        _                   -> error "Wrong response in openFileDialog!"
     widgetHide dialog
     
 
