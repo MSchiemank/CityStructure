@@ -1,5 +1,5 @@
 module Main where 
-import Control.Concurrent
+import Control.Concurrent 
 import Data.IORef
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
@@ -7,35 +7,39 @@ import qualified Graphics.UI.Gtk.Gdk.Events as Events
 import Graphics.UI.Gtk.Glade
 import Parse
 import Run
-import System.Random
+import System.Random 
 
+--import Debug.Trace
+
+
+----------------------------- global variable -----------------------------------
+emptyCity :: City
+emptyCity = City 0 0 [] []
+
+minWidth :: Int
+minWidth = 440
+
+minHeight :: Int
+minHeight = 150
 
 spaceCell :: Int
-spaceCell = 7
+spaceCell = 8
 
+
+---------------------------- < main > -------------------------------------------
 --Starting the programm with the gui
 main :: IO()
-main = do file <- readFile "city"--"rightTest"--"signalTest"--
-
--- the city is now an IORef
-          gen <- newStdGen
-          genIO <- newIORef gen
-          cityIO <- newIORef $parse genIO $doInputString file
-          c <- readIORef cityIO
-
-          let fieldWidth = getCityWidth c
-              fieldHeight = getCityHeight c
-              winW = if 380< spaceCell * fieldWidth
-                        then spaceCell * fieldWidth
-                        else 380
-              winH = if 150< spaceCell * fieldHeight
-                        then spaceCell * fieldHeight
-                        else 150
-
+main = do 
+------------------------------------
 --set up the gui with relationships
           _ <- initGUI
-          Just xml <- xmlNew "gui.glade"
-          window   <- xmlGetWidget xml castToWindow "window1"
+          xmlM <- xmlNew "gui.glade"
+          let xml = case xmlM of
+                 (Just caseXml) -> caseXml
+                 Nothing        -> error $ "can't find the glade file \"gui.glade\""
+                                           ++ "in the current directory"
+          mainWindow   <- xmlGetWidget xml castToWindow "window1"
+          open <- xmlGetWidget xml castToToolButton"open"
           reset <- xmlGetWidget xml castToToolButton "reset"
           start <- xmlGetWidget xml castToToolButton "start"
           stop <- xmlGetWidget xml castToToolButton "stop"
@@ -44,39 +48,93 @@ main = do file <- readFile "city"--"rightTest"--"signalTest"--
           grid <- xmlGetWidget xml castToCheckButton "gridButton"
           drawarea <- xmlGetWidget xml castToDrawingArea "drawingarea"
 
-          _ <- on drawarea sizeRequest $ return (Requisition winW winH)
+------------------------------------
+-- initialising the IORef variables
+
+-- generates a standart generator for random numbers and build an IORef var
+          gen <- newStdGen
+          genIO <- newIORef gen
+
+-- initialised the file variable as IORefs
+          filePathIO <- newIORef ""
+          fileIO <- newIORef ""
+-- the city is now an empty City in IORef
+          cityIO <- newIORef emptyCity 
+
 
 -- setting the speed as an IORef var and the automation flag to False.
-          speed <- spinButtonGetValueAsInt speedButton
+          speed   <- spinButtonGetValueAsInt speedButton
           speedIO <- newIORef speed
-          autoIO <- newIORef False
+          autoIO  <- newIORef False
 
 
--- setting the sensitivity of the whole buttons
-          mapM_ (flip widgetSetSensitivity False) [reset,stop]
-          mapM_ (flip widgetSetSensitivity True) [start,step]
+------------------------------------
+-- setting the sensitivity of the whole buttons and the activity of the grid button
+          mapM_ (flip widgetSetSensitivity False) [reset,stop,start,step]
+          toggleButtonSetActive grid True --False
 
+
+------------------------------------
 -- the events with the different handlings
 
+
+-- The onSizeRequest event:
+-- This event will appear, if the drawarea is requesting it's size
+          _ <- on drawarea sizeRequest $do
+                (w, h) <- dynSize cityIO
+                return (Requisition w h)
+
+
+-- The openFileDialog:
+-- If one file is selected, this file will be read, the city will be created
+-- as an IORef City var, the drawingarea will be resized, the buttons will be 
+-- activated and the drawingarea will be painted.
+          _ <- onToolButtonClicked open $do 
+                    openOpenFileDialog mainWindow filePathIO
+                    filePath <- readIORef filePathIO
+                    if null filePath
+                       then return ()
+                       else (do 
+                                -- the contents of the file will be read
+                                file <- readFile filePath
+                                -- the file path to IORef 
+                                modifyIORef fileIO (\_ -> file)
+                                -- city will be generated and stored in IORef
+                                modifyIORef cityIO (\_ -> parse genIO $doInputString file)
+                                -- a new title for the mainWindow
+                                windowSetTitle mainWindow $"City Structure - "++filePath
+                                -- widget will be resized 
+                                (w, h) <- dynSize cityIO
+                                widgetSetSizeRequest drawarea w h
+                                -- buttons will be activated
+                                mapM_ (flip widgetSetSensitivity True) [start,step]
+                                -- city will be painted
+                                update grid drawarea cityIO)
+
+
 -- resets the drawingarea to the beginnig
-          _ <- onToolButtonClicked reset $ do 
-                modifyIORef cityIO $do return $parse genIO $doInputString file
-                modifyIORef autoIO $do return False
+          _ <- onToolButtonClicked reset $ do
+                file <- readIORef fileIO
+                let city = if null file
+                              then emptyCity
+                              else parse genIO $doInputString file
+                modifyIORef cityIO (\_ -> city)
+                modifyIORef autoIO (\_ -> False)
                 mapM_ (flip widgetSetSensitivity False) [reset,stop]
                 mapM_ (flip widgetSetSensitivity True) [start,step]
-                update grid drawarea cityIO fieldWidth fieldHeight
+                update grid drawarea cityIO
 
 -- starts the automatic by setting the autoIO flag
           _ <- onToolButtonClicked start $ do
                 modifyIORef autoIO $ do return True
-                mapM_ (flip widgetSetSensitivity False) [reset,start,step]
+                mapM_ (flip widgetSetSensitivity False) [open,reset,start,step]
                 mapM_ (flip widgetSetSensitivity True) [stop]
 
 -- stopps the automatic 
           _ <- onToolButtonClicked stop $ do
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity False) [stop]
-                mapM_ (flip widgetSetSensitivity True) [reset,start,step]
+                mapM_ (flip widgetSetSensitivity True) [open,reset,start,step]
 
 
 -- step by step the drawingarea will be changed          
@@ -84,27 +142,26 @@ main = do file <- readFile "city"--"rightTest"--"signalTest"--
                 modifyIORef cityIO nextStep
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity True) [reset]
-                update grid drawarea cityIO fieldWidth fieldHeight
+                update grid drawarea cityIO
 
 -- the modifying of the speedIO var           
           _ <- onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
                                               modifyIORef speedIO (return s2)
                         
 -- turns the gridd on and off
-          _ <- onToggled grid $ update grid drawarea cityIO fieldWidth fieldHeight
+          _ <- onToggled grid $ update grid drawarea cityIO
 
 
--- for the first popup of the window 
-          gridActive <- toggleButtonGetActive grid
-          _ <- onExpose drawarea $exposeDraw drawarea gridActive cityIO fieldWidth fieldHeight
+-- for the first popup of the mainWindow 
+          _ <- onExpose drawarea $exposeDraw drawarea grid cityIO
 
 
 --starts a new IO thread for the automatic          
           _ <- forkIO (thread cityIO speedIO autoIO drawarea grid)
 
 
-          _ <- onDestroy window mainQuit
-          widgetShowAll window
+          _ <- onDestroy mainWindow mainQuit
+          widgetShowAll mainWindow
           mainGUI
 
 
@@ -129,26 +186,43 @@ thread cityIO speedIO autoIO drawarea grid = do
 -----------------------------------------------------------------------------------------
 
 -- used when reset or step button are pushed. 
-update :: CheckButton -> DrawingArea -> IORef City -> Int -> Int -> IO ()
-update grid drawarea cityIO fieldW fieldH = do
+update :: CheckButton -> DrawingArea -> IORef City -> IO ()
+update grid drawarea cityIO = do
     gridAct <- toggleButtonGetActive grid 
     (w,h) <- widgetGetSize drawarea
     drw <- widgetGetDrawWindow drawarea
     city <- readIORef cityIO
-    let space = minimum [div w fieldW, div h fieldH]
+--    (fieldW,fieldH) <- size
+    let fieldW = getCityWidth city
+        fieldH = getCityHeight city
+        calcSpace = minimum [div w fieldW, div h fieldH]
+        space = if (fieldW > 0 && calcSpace>spaceCell)
+                 then calcSpace
+                 else spaceCell
     renderWithDrawable drw $ cityDraw gridAct city space w h
 
 
 
 
 -- used only on expose event.
-exposeDraw :: DrawingArea -> Bool -> IORef City -> Int -> Int ->  Events.Event -> IO Bool
-exposeDraw draw grid cityIO fieldW fieldH event = do
+exposeDraw :: DrawingArea -> 
+              CheckButton -> 
+              IORef City -> 
+              Events.Event -> 
+              IO Bool
+exposeDraw draw grid cityIO event = do
+            gridAct <- toggleButtonGetActive grid
             (w,h) <- widgetGetSize draw
             drw <- widgetGetDrawWindow draw
             city <- readIORef cityIO
-            let space = minimum [div w fieldW, div h fieldH]
-            renderWithDrawable drw $cityDraw grid city space w h
+--            (fieldW,fieldH) <- size
+            let fieldW = getCityWidth city
+                fieldH = getCityHeight city
+                calcSpace = minimum [div w fieldW, div h fieldH]
+                space = if (fieldW > 0 && calcSpace>spaceCell)
+                           then calcSpace
+                           else spaceCell
+            renderWithDrawable drw $cityDraw gridAct city space w h
             return (Events.eventSent event)
  
 
@@ -290,13 +364,16 @@ drawBuilding space (x,y) = do
         xd = fromIntegral x
         yd = fromIntegral y
     setSourceRGB 0 0 0
-    setLineWidth (s*0.1)
+    setLineWidth (s*0.05)
     moveTo ((xd-0.2)*s) ((yd-0.1)*s)
     lineTo ((xd-0.8)*s) ((yd-0.1)*s)
     lineTo ((xd-0.8)*s) ((yd-0.5)*s)
-    lineTo ((xd-0.5)*s) ((yd-0.8)*s)
     lineTo ((xd-0.2)*s) ((yd-0.5)*s)
-    lineTo ((xd-0.2)*s) ((yd-0.05)*s)
+    closePath
+
+    moveTo ((xd-0.9)*s) ((yd-0.5)*s)
+    lineTo ((xd-0.5)*s) ((yd-0.8)*s)
+    lineTo ((xd-0.1)*s) ((yd-0.5)*s)
 
 
 -- This draws a little connection from source to destination street part of a single street field
@@ -327,7 +404,48 @@ drawGrid space w h = do
                   lineTo (fromIntegral w) (fromIntegral y)
                   stroke)  [y1*space | y1 <- [0..(div h space)]]
 
+-------------------------------- < openOpenFileDialog > ----------------------------------
+openOpenFileDialog :: Window -> IORef String -> IO ()
+openOpenFileDialog parentWindow filePathIO = do
+    dialog <- fileChooserDialogNew 
+                    (Just "Select a City")              -- title of the window
+                    (Just parentWindow)                 -- the parent window
+                    FileChooserActionOpen               -- the kind of dialog we want
+                    [("gtk-cancel"                      -- the buttons to display
+	                 , ResponseCancel)
+	                 ,("gtk-open"                                  
+	                 , ResponseAccept)]
+    widgetShow dialog
+    resp <- dialogRun dialog
+    case resp of
+        ResponseAccept      -> do filePath <- fileChooserGetFilename dialog
+                                  let path = case filePath of
+                                        (Just s   ) -> s
+                                        Nothing     -> error "Error on ResponseAccept in "++
+                                                       "openOpenFileDialog"
+                                  modifyIORef filePathIO (\_ -> path)
+        ResponseCancel      -> return ()
+        ResponseDeleteEvent -> return ()
+        _                   -> error "Wrong response in openOpenFileDialog!"
+    widgetHide dialog
+    
 
+------------------------------------------------------------------------------------------
+-- Returns the lowest size of the drawingarea
+
+dynSize :: IORef City -> IO (Int, Int)
+dynSize cityIO = do 
+    liftIO $ do
+    c <- readIORef cityIO
+    let fieldWidth = getCityWidth c
+        fieldHeight = getCityHeight c
+        winW = if minWidth< spaceCell * fieldWidth
+                  then spaceCell * fieldWidth
+                  else minWidth
+        winH = if minHeight< spaceCell * fieldHeight
+                  then spaceCell * fieldHeight
+                  else minHeight
+    return (winW, winH)
 
 ------------------------------------------------------------------------------------------
 -- The next segment is the writing on the console and is not more used by the prog.
