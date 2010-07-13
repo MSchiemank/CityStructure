@@ -40,7 +40,7 @@ main = do
                                            ++ "in the current directory"
           mainWindow   <- xmlGetWidget xml castToWindow "window1"
           open <- xmlGetWidget xml castToToolButton "open"
-          save <- xmlGetWidget xml castToToolButton "save"
+          saveButton <- xmlGetWidget xml castToToolButton "save"
           reset <- xmlGetWidget xml castToToolButton "reset"
           start <- xmlGetWidget xml castToToolButton "start"
           stop <- xmlGetWidget xml castToToolButton "stop"
@@ -72,7 +72,7 @@ main = do
 
 ------------------------------------
 -- setting the sensitivity of the whole buttons and the activity of the grid button
-          mapM_ (flip widgetSetSensitivity False) [reset,stop,start,step]
+          mapM_ (flip widgetSetSensitivity False) [reset,stop,start,step,saveButton]
           toggleButtonSetActive grid True --False
 
 
@@ -109,7 +109,7 @@ main = do
                                 (w, h) <- dynSize cityIO
                                 widgetSetSizeRequest drawarea w h
                                 -- buttons will be activated
-                                mapM_ (flip widgetSetSensitivity True) [start,step]
+                                mapM_ (flip widgetSetSensitivity True) [start,step,saveButton]
                                 -- city will be painted
                                 update grid drawarea cityIO)
 
@@ -118,11 +118,15 @@ main = do
 
 
 -- The saveFileDialog
-          _ <- onToolButtonClicked save $do
+          _ <- onToolButtonClicked saveButton $do
                     saveFileDialog mainWindow fileSavePathIO
                     fileSavePath <- readIORef fileSavePathIO
-                    file <- readIORef fileIO
-                    writeFile fileSavePath file
+                    if null fileSavePath
+                       then return ()
+                       else (do
+                                city <- readIORef cityIO
+                                let string = cityToString city
+                                writeFile fileSavePath string)
 
 
 
@@ -440,7 +444,7 @@ openFileDialog parentWindow fileOpenPathIO = do
                                   modifyIORef fileOpenPathIO (\_ -> path)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
-        _                   -> error "Wrong response in openFileDialog!"
+        _                   -> return ()
     widgetHide dialog
     
 
@@ -448,12 +452,12 @@ openFileDialog parentWindow fileOpenPathIO = do
 saveFileDialog :: Window -> IORef String -> IO ()
 saveFileDialog parentWindow fileSavePathIO = do
     dialog <- fileChooserDialogNew 
-                    (Just "Select a City")              -- title of the window
+                    (Just "City will be saved as:")              -- title of the window
                     (Just parentWindow)                 -- the parent window
-                    FileChooserActionOpen               -- the kind of dialog we want
+                    FileChooserActionSave               -- the kind of dialog we want
                     [("gtk-cancel"                      -- the buttons to display
 	                 , ResponseCancel)
-	                 ,("gtk-open"                                  
+	                 ,("gtk-save"                                  
 	                 , ResponseAccept)]
     widgetShow dialog
     resp <- dialogRun dialog
@@ -466,7 +470,7 @@ saveFileDialog parentWindow fileSavePathIO = do
                                   modifyIORef fileSavePathIO (\_ -> path)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
-        _                   -> error "Wrong response in openFileDialog!"
+        _                   -> return ()
     widgetHide dialog
     
 

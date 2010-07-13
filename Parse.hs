@@ -373,3 +373,171 @@ roadJunction roads = Road idR nameRoad roadPath
                      where idR = (\(Road identR _ _) -> identR) (head roads)
                            nameRoad = (\(Road _ nameR _) -> nameR) (head roads)
                            roadPath = nub (map (\(Road _ _ nextR) -> head nextR) roads)
+
+
+
+---------------------------------- < cityToString >--------------------------------------
+-- This takes a City and builds a string to save this to a file
+-- First it gets the width and the height of the city. After that
+-- it joins the roads, signals, buildings and cars.
+-- For more practicable, the static list will be ziped with 
+-- coordinates.
+cityToString :: City -> String
+cityToString city =
+    widthStr ++ heightStr ++ roads ++ signals ++ buildings ++ cars
+    where 
+          widthStr = "width = " ++ show widthC ++ "\n"
+          heightStr = "height = " ++ show heightC ++ "\n"
+          roads = ":Roads\n" ++ roadString posStat ++ end
+          signals = ":Signals\n" ++ signalString dynCity ++ end
+          buildings = ":Buildings\n" ++ buildingString posStat ++ end
+          cars = ":Cars\n" ++ carString dynCity ++ end
+          end = ":end\n"
+          widthC = getCityWidth city
+          heightC = getCityHeight city
+          dynCity = getCityDynamic city
+          statCity = getCityStatic city
+          posStat = zip array $concat statCity
+          array = [(y,x) | x <- [1..heightC], y <- [1..widthC]]
+          
+
+
+-- This one gets the static cells with the coordinates, filters the 
+-- buildings and the empty cells out, so that there are only road
+-- cells available. Then the first road will be filtered out by the 
+-- identifier. After creating the string, the list will be cleaned 
+-- from the worked road cells and do it from the beginning.
+roadString :: [(Pos,Cell)] -> String
+roadString [] = []
+roadString list = 
+    show idR ++ ";" ++ nameR ++ ";" ++ getRoadPos filteredRoads ++ "\n"
+     ++ (roadString $roads\\filteredRoads)
+    where 
+          roads = filter (\(_,cell) -> case cell of 
+                                    {(Road _ _ _) -> True;
+                                     _            -> False}) list
+          idR = (\(_,Road id1 _ _) -> id1) $ head roads
+          nameR = name $ snd $ head roads
+          filteredRoads = roadWithSameId idR roads
+
+
+
+
+-- This is a little bit tricky:
+-- All vertikal streets were rebuild right, because the vertical
+-- streets will be preferred by the parser, if two roads are on 
+-- the same position.
+
+-- The first road piece will alwaly be the upper left piece.
+-- For the vertical roads the first coordinate will be the position
+-- from the firs piece. The second position will be the last piece 
+-- of all pieces in the same vertical line. The other two pieces
+-- are only the first two plus 1 number in x-value
+
+-- The same thing for teh horizontal roads. But with a little
+-- difference. All points will be checked, if the nextRoad
+-- piece in nextRoad is the same, as the piece one y step downward
+-- or one x step to the right. This is the left and right
+-- correction of the end of the road.
+getRoadPos :: [(Pos,Cell)] -> String
+getRoadPos list = 
+    if length otherCellX >2
+       then show pos1V ++ show pos2V ++ show pos3V ++ show pos4V
+       else show pos1H ++ show pos2H ++ show pos3H ++ show pos4H
+    where (x1,y1) = fst $ head list
+          (x2, y2) = fst $ head $ reverse otherCellY
+          firstCell = snd $ head list
+          lastCellYPlus1 = snd $ head $ reverse otherCellYPlus1
+          otherCellX = filter (\((xX,_),_) -> xX == x1) list
+          otherCellY = filter (\((_,yX),_) -> yX == y1) list
+          otherCellYPlus1 = filter (\((_,yX),_) -> yX == y1 + 1) list
+          pos1V = (x1,y1) 
+          pos2V = fst $head $reverse otherCellX
+          pos3V = ((fst pos2V)+1, snd pos2V)
+          pos4V = (x1+1,y1)
+          pos1H = (fst pos4H,(snd pos4H) + 1)
+          pos2H = (fst pos3H,1+snd pos3H)
+          pos3H = if (nextRoad lastCellYPlus1) /= [(x2, y2)]
+                     then (2 + x2, y2)
+                     else fst $ head $ reverse otherCellY
+          pos4H = if (nextRoad firstCell) /= [(x1,y1+1)]
+                     then (x1-2,y1)
+                     else (x1,y1)
+
+
+
+-- Filtered all road cells out, which have not the given id.
+roadWithSameId :: Int -> [(Pos,Cell)] -> [(Pos,Cell)]
+roadWithSameId idR1 list =
+    filter (\(_, Road idR2 _ _) -> idR1 == idR2) list
+
+
+
+-- Generates a string for the signals
+signalString :: [(Pos,Cell)] -> String
+signalString list = 
+    concat $ map (\(pos, Signal idS
+                         sta
+                         steps
+                         _
+                         workWithS
+                         workAgainst) -> show idS ++ ";" ++
+                                         show pos ++ ";" ++
+                                         statusS sta ++ ";" ++
+                                         show steps ++ ";" ++
+                                         show (otherSigId workWithS list) ++ ";" ++
+                                         show (otherSigId workAgainst list) ++ "\n") signals
+    where   
+          signals = filter (\(_,cell) -> case cell of 
+                                {(Signal _ _ _ _ _ _) -> True;
+                                 _                    -> False}) list
+          statusS x = if x then "green" else "red"
+
+-- Returns the id for the signals addicted to the given signal
+otherSigId :: [Pos] -> [(Pos,Cell)] -> [Int]
+otherSigId poslist list = 
+    map (\(_,Signal idS _ _ _ _ _) -> idS) $ concat otherSignals
+    where
+          otherSignals = map (\x ->  filter (\(pos,_) -> x == pos) list) poslist
+         
+
+-- generates a string for the buildings
+buildingString :: [(Pos,Cell)] -> String
+buildingString list =
+    concat $ map (\(pos, Building idB nameB) -> show idB ++ ";" ++
+                                                nameB ++ ";" ++
+                                                show pos ++ "\n") buildings
+    where 
+           buildings = filter (\(_,cell) -> case cell of 
+                                    {(Building _ _) -> True;
+                                     _              -> False}) list
+
+
+-- generates a string for the cars
+carString :: [(Pos,Cell)] -> String
+carString list = 
+    concat $ map (\(pos,Car idC destC _ _ ) -> show idC ++ ";" ++
+                                               show pos ++ ";" ++ 
+                                               show destC ++ "\n") cars
+    where 
+          cars = filter (\(_,cell) -> case cell of
+                             {(Car _ _ _ _) -> True;
+                               _            -> False}) list
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

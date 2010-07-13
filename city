@@ -21,7 +21,7 @@ height = 40
 12; Frankfurter_Straße; (1,6)(100,6) (100,5)(1,5)
 13; Finkenweg; (10,16)(80,16) (80,15)(10,15)
 14; Königstraße; (1,20)(100,20) (100,19)(1,19)
-6; Tunnelstraße; (79,27)(100,27) (100,26)(79,26)
+15; Tunnelstraße; (79,27)(100,27) (100,26)(79,26)
 16; Teichstraße; (10,35)(80,35) (80,34)(10,34)
 17; Kurze_Straße; (2,40)(11,40) (11,39)(2,39)
 
@@ -29,7 +29,7 @@ height = 40
 
 
 -- Using traffic signals to direct the traffic
--- identifier; (x,y);[work together];[opposite of,opposite of]
+-- identifier; (x,y);status; timeToWait; [work together];[opposite of,opposite of]
 :Signals
 1; (1,4);green;5;[3];[2,4]
 2; (4,4);red;5;[4];[1,3]
