@@ -83,13 +83,19 @@ stringListBreakAt string char = lines $ map (\x -> if x == char then '\n' else x
   contain the streets and the buildings. The second list contain the signals and the
   cars.-}
 parse :: IORef StdGen -> [String] -> City
-parse genIO s = do buildCity cityW cityH (roadCells++buildingCells) (signalCells++carCells)
-                   where cityW = getDim s "width="
-                         cityH = getDim s "height="
-                         roadCells = concat $map generateRoad (searchRows s ":Roads")
-                         buildingCells = map generateBuilding (searchRows s ":Buildings")
-                         signalCells = generateSignals (searchRows s ":Signals")
-                         carCells = map (generateCarList  buildingCells roadCells genIO) (searchRows s ":Cars")
+parse genIO s = do 
+    buildCity cityW cityH (roadCells++buildingCells)
+                          (signalCells++carCells)
+    where cityW = getDim s "width="
+          cityH = getDim s "height="
+          roadCells = concat $map generateRoad (searchRows s ":Roads")
+          buildingCells = map generateBuilding
+                              (searchRows s ":Buildings")
+          signalCells = generateSignals (searchRows s ":Signals")
+          carCells = map (generateCarList
+                          buildingCells
+                          roadCells genIO)
+                         (searchRows s ":Cars")
 
 -- returns the width or the height of the city
 getDim :: [String] -> String -> Int
@@ -378,7 +384,7 @@ roadJunction roads = Road idR nameRoad roadPath
 
 
 
----------------------------------- < cityToString >--------------------------------------
+---------------------------------- < cityToString >------------------
 -- This takes a City and builds a string to save this to a file
 -- First it gets the width and the height of the city. After that
 -- it joins the roads, signals, buildings and cars.
@@ -436,7 +442,7 @@ roadString list =
 -- of all pieces in the same vertical line. The other two pieces
 -- are only the first two plus 1 number in x-value
 
--- The same thing for teh horizontal roads. But with a little
+-- The same thing for the horizontal roads. But with a little
 -- difference. All points will be checked, if the nextRoad
 -- piece in nextRoad is the same, as the piece one y step downward
 -- or one x step to the right. This is the left and right
@@ -532,7 +538,7 @@ carString list =
 ---------------------------- < randomCity > -------------------------
 randomCity :: [Int] -> IORef StdGen -> String
 randomCity (cityWidth:cityHeight:hor:vert:sign:build:carsNumb:[])
- genIO=
+ genIO = 
     "width = " ++ show cityWidth ++ "\nheight = " ++
     show cityHeight ++ "\n:Roads\n" ++ unlines roadStr ++ 
     ":end\n:Signals\n" ++ signals ++
@@ -548,11 +554,19 @@ randomCity (cityWidth:cityHeight:hor:vert:sign:build:carsNumb:[])
           roadStr = map (\(i ,(w,x,y,z)) ->
             show i ++ ";" ++ show i ++ ";" ++ show w ++ show x ++
             show y ++ show z) $horizontalRoads ++ verticalRoads
-          signals = "\n"
+          horRoadList = concat $map buildListFromTuple horizontalRoads
+          vertRoadList = concat $map buildListFromTuple verticalRoads
+          junctions = sort $intersect vertRoadList horRoadList
+          signals = getSignals junctions sign genIO
           buildings = "\n"
           cars = "\n"
 randomCity _ _ = error "The random city gets an unknwon list!"
 
+
+buildListFromTuple :: (Int,(Pos,Pos,Pos,Pos)) -> [Pos]
+buildListFromTuple (_,(p1,p2,p3,p4)) =
+    buildRoadPointToPoint p1 p2 ++
+    buildRoadPointToPoint p3 p4
 
 -- returns random positions of the streets
 getRoads :: Int -> Int -> Int -> Bool ->
@@ -576,9 +590,41 @@ getRoads x y z horizontal genIO streets =
     return (streetId ,position)
 
 
---getSignals :: String -> Int -> IORef StdGen -> String
---getSignals 
-    
+getSignals :: [Pos] -> Int -> IORef StdGen -> String
+getSignals _ 0 _ = []
+getSignals [] _ _ = []
+getSignals list i genIO = trace (show list) $
+  unsafePerformIO $ liftIO $do
+    gen <- readIORef genIO
+    let (pos,genNew) = randomR (0, (length list) - 1) gen
+        (x,y) = list!!pos
+        maybeJunctionFields = [(x-1,y-1),(x,y-1),(x+1,y-1),
+                               (x-1,y)  ,(x,y  ),(x+1,y  ),
+                               (x-1,y+1),(x,y+1),(x+1,y+1)]
+        junction = sort $ intersect list maybeJunctionFields
+        (signalLength,genNew2) = randomR (3::Int,20) genNew
+        sig1Pos = show ((fst $junction!!0)-1,(snd $junction!!0)-1)
+        sig2Pos = show ((fst $junction!!1)-1,(snd $junction!!1)+1)
+        sig3Pos = show ((fst $junction!!2)+1,(snd $junction!!2)-1)
+        sig4Pos = show ((fst $junction!!3)+1,(snd $junction!!3)+1)
+        sig1Id = show (i*4)
+        sig2Id = show (i*4+1)
+        sig3Id = show (i*4+2)
+        sig4Id = show (i*4+3)
+        sigLength = show signalLength
+        sig1 = sig1Id++";"++sig1Pos++";green;"++sigLength++";["++
+               sig4Id++"];["++sig2Id++","++sig3Id++"]\n"
+        sig2 = sig2Id++";"++sig2Pos++";red;"++sigLength++";["++
+               sig3Id++"];["++sig1Id++","++sig4Id++"]\n"
+        sig3 = sig3Id++";"++sig3Pos++";red;"++sigLength++";["++
+               sig2Id++"];["++sig1Id++","++sig4Id++"]\n"
+        sig4 = sig4Id++";"++sig4Pos++";green;"++sigLength++";["++
+               sig1Id++"];["++sig2Id++","++sig3Id++"]\n"
+    putStrLn $sig1++sig2++sig3++sig4
+    modifyIORef genIO (\_ -> genNew2)
+    return $sig1++sig2++sig3++sig4++
+            getSignals (list\\junction) (i-1) genIO
+            
 
 
 

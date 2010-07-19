@@ -546,16 +546,16 @@ showRandDialog xml randValIO = do
 -- It reads the value of the spinbutton, activates the road spin 
 -- buttons, if width and height was changed
     _ <- afterValueSpinned widthSpin $do 
-        valWi <- spinButtonGetValue widthSpin
-        valHe <- spinButtonGetValue heightSpin
-        valHo <- spinButtonGetValue horStreets
-        valVe <- spinButtonGetValue vertStreets
+        valWi <- spinButtonGetValueAsInt widthSpin
+        valHe <- spinButtonGetValueAsInt heightSpin
+        valHo <- spinButtonGetValueAsInt horStreets
+        valVe <- spinButtonGetValueAsInt vertStreets
         spinButtonSetRange 
             vertStreets 1 
-            $valWi * 0.25
+            $realToFrac (div valWi 4)
         spinButtonSetRange 
             buildings 0 
-            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+            $ realToFrac $2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
         range <- spinButtonGetRange buildings
         if snd range > 0
             then mapM_ (flip widgetSetSensitivity True)
@@ -571,16 +571,16 @@ showRandDialog xml randValIO = do
 
 -- height spinning box  
     _ <- afterValueSpinned heightSpin $do 
-        valWi <- spinButtonGetValue widthSpin
-        valHe <- spinButtonGetValue heightSpin
-        valHo <- spinButtonGetValue horStreets
-        valVe <- spinButtonGetValue vertStreets
+        valWi <- spinButtonGetValueAsInt widthSpin
+        valHe <- spinButtonGetValueAsInt heightSpin
+        valHo <- spinButtonGetValueAsInt horStreets
+        valVe <- spinButtonGetValueAsInt vertStreets
         spinButtonSetRange
             horStreets 1   
-            $valHe * 0.25
+            $realToFrac (div valHe 4)
         spinButtonSetRange 
             buildings 0 
-            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+            $ realToFrac $2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
         range <- spinButtonGetRange buildings
         if snd range > 0
             then mapM_ (flip widgetSetSensitivity True)
@@ -596,16 +596,16 @@ showRandDialog xml randValIO = do
 
 -- a number of the horizontal streets in the city
     _ <- afterValueSpinned horStreets $do
-        valWi <- spinButtonGetValue widthSpin
-        valHe <- spinButtonGetValue heightSpin
-        valHo <- spinButtonGetValue horStreets
-        valVe <- spinButtonGetValue vertStreets
+        valWi <- spinButtonGetValueAsInt widthSpin
+        valHe <- spinButtonGetValueAsInt heightSpin
+        valHo <- spinButtonGetValueAsInt horStreets
+        valVe <- spinButtonGetValueAsInt vertStreets
         spinButtonSetRange
             signals 0
-            $ valVe*valHo
+            $ realToFrac $valVe*valHo
         spinButtonSetRange 
             buildings 0 
-            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+            $ realToFrac $2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
         range <- spinButtonGetRange buildings
         if snd range > 0
             then mapM_ (flip widgetSetSensitivity True)
@@ -616,16 +616,16 @@ showRandDialog xml randValIO = do
             
 -- a number of the vertical streets in the city
     _ <- afterValueSpinned vertStreets $do
-        valWi <- spinButtonGetValue widthSpin
-        valHe <- spinButtonGetValue heightSpin
-        valHo <- spinButtonGetValue horStreets
-        valVe <- spinButtonGetValue vertStreets
+        valWi <- spinButtonGetValueAsInt widthSpin
+        valHe <- spinButtonGetValueAsInt heightSpin
+        valHo <- spinButtonGetValueAsInt horStreets
+        valVe <- spinButtonGetValueAsInt vertStreets
         spinButtonSetRange
             signals 0
-            $ valVe*valHo
+            $ realToFrac $valVe*valHo
         spinButtonSetRange 
             buildings 0 
-            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+            $ realToFrac $2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
         range <- spinButtonGetRange buildings
         if snd range > 0
             then mapM_ (flip widgetSetSensitivity True)
@@ -637,10 +637,10 @@ showRandDialog xml randValIO = do
 
 -- a number of the buildings in the city
     _ <- afterValueSpinned buildings $do
-        valBuild <- spinButtonGetValue buildings
+        valBuild <- spinButtonGetValueAsInt buildings
         spinButtonSetRange
             cars 0
-            $ valBuild * 0.5
+            $ realToFrac $div valBuild 2
         range <- spinButtonGetRange cars
         if snd range > 0
             then mapM_ (flip widgetSetSensitivity True)
