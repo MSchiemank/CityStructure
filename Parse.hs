@@ -7,6 +7,8 @@ import System.Random
 import Control.Monad.Trans
 import System.IO.Unsafe
 
+import Debug.Trace
+
 --Datatype setting
 data Cell = Road    { ident         :: Int,
                       name          :: String,
@@ -527,15 +529,56 @@ carString list =
 
 
 
+---------------------------- < randomCity > -------------------------
+randomCity :: [Int] -> IORef StdGen -> String
+randomCity (cityWidth:cityHeight:hor:vert:sign:build:carsNumb:[])
+ genIO=
+    "width = " ++ show cityWidth ++ "\nheight = " ++
+    show cityHeight ++ "\n:Roads\n" ++ unlines roadStr ++ 
+    ":end\n:Signals\n" ++ signals ++
+    ":end\n:Buildings\n" ++ buildings ++ ":end\n" ++ ":Cars\n" ++
+    cars ++ ":end"
+    where 
+          horizontalRoads = map (getRoads cityWidth 
+                             cityHeight hor True genIO) 
+                             [1..hor]
+          verticalRoads = map (getRoads cityHeight 
+                             cityWidth vert False genIO)
+                             [1..vert]
+          roadStr = map (\(i ,(w,x,y,z)) ->
+            show i ++ ";" ++ show i ++ ";" ++ show w ++ show x ++
+            show y ++ show z) $horizontalRoads ++ verticalRoads
+          signals = "\n"
+          buildings = "\n"
+          cars = "\n"
+randomCity _ _ = error "The random city gets an unknwon list!"
 
 
+-- returns random positions of the streets
+getRoads :: Int -> Int -> Int -> Bool ->
+            IORef StdGen -> Int -> (Int,(Pos,Pos,Pos,Pos))
+getRoads x y z horizontal genIO streets =
+  unsafePerformIO $ liftIO $do
+    gen <- readIORef genIO
+    let 
+        streetId = if horizontal
+                  then streets
+                  else streets+x
+        pos1 = if horizontal 
+                  then 1 + streets * distance - randDist
+                  else streets * distance - randDist
+        distance = div y z
+        (randDist,genNew) = randomR (2,distance-2) gen
+        position = if horizontal 
+            then ((1,pos1),(x,pos1),(x,(pos1 - 1)),(1,(pos1-1)))
+            else ((pos1,1),(pos1, x),((pos1 + 1),x),((pos1+1),1))
+    modifyIORef genIO (\_ -> genNew)
+    return (streetId ,position)
 
 
-
-
-
-
-
+--getSignals :: String -> Int -> IORef StdGen -> String
+--getSignals 
+    
 
 
 

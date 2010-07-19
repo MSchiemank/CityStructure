@@ -217,3 +217,4 @@ findWayInCorrectDirection staticC (xd,yd) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2
 findWayInCorrectDirection _ _ _ = error "To few ways in findWayInCorrectDirection!"
 
 
+
