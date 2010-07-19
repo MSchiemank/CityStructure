@@ -2,7 +2,6 @@ module Run where
 import Parse
 import Data.List
 
-
 {- The nextStep is first to generate a new dynamic list, with the moving cars on the next
    point in the City and the switching signals.Out of this a new city will be generated.-}
 nextStep :: City -> City
@@ -36,16 +35,16 @@ nextStep city =
 rightBeforeLeft :: [(Pos,Cell)] -> [(Pos,Cell)]
 rightBeforeLeft cars = 
     if (length cars)==2 
-        then whereIsTheRightOfTheCar firstCar secondCar :
-             whereIsTheRightOfTheCar secondCar firstCar : []
+        then whoIsTheRightOfTheCar firstCar secondCar :
+             whoIsTheRightOfTheCar secondCar firstCar : []
         else error "More ore less than two cars on one roadcell in rightBeforeLeft!"
     where
           firstCar = cars!!0
           secondCar = cars!!1
  
 
-whereIsTheRightOfTheCar :: (Pos,Cell) -> (Pos,Cell) -> (Pos,Cell)
-whereIsTheRightOfTheCar car1 car2 =
+whoIsTheRightOfTheCar :: (Pos,Cell) -> (Pos,Cell) -> (Pos,Cell)
+whoIsTheRightOfTheCar car1 car2 = 
     -- first time is, that a car comes from the top
     if xCar1==oldXCar1 
         then if yCar1>oldYCar1
@@ -68,7 +67,8 @@ whereIsTheRightOfTheCar car1 car2 =
 
 
 -- shows on the right side of a car, if there is another car.
-showRight :: Pos -> (Pos, Cell) -> (Pos, Cell) -> (Pos, Cell)
+showRight :: Pos -> (Pos, Cell) 
+            -> (Pos, Cell) -> (Pos, Cell)
 showRight rightPos car1 car2 =
     if rightPos==oldPosCar2
        then (returnOldPos car1, remLastPos car1)
@@ -84,7 +84,7 @@ returnOldPos _ = error "Must be a car cell in returnOldPos!"
 
 remLastPos :: (Pos,Cell) -> Cell
 remLastPos (_,Car idC destC oldPath col) =
-    Car idC destC ( reverse $ tail $ reverse oldPath) col
+    Car idC destC (reverse $ tail $ reverse oldPath) col
 remLastPos _ = error "Must be a car cell in remLastPos!"
 
 
@@ -152,19 +152,28 @@ checkSignal stat dyn (x,y) cell =
 getCell :: [[Cell]] -> (Pos) -> Cell
 getCell cell (x,y) = (cell!!(y-1))!!(x-1)
 
+
+
 -- Remove the car, if its on the destination or in the neighborhood.
 carStep :: [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell -> (Pos,Cell)
-carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
+carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) = 
     if (xa,ya) == (xd,yd) || 
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
        then ((-1,-1), Car {ident=0, dest=(-1,-1), iWasThere=[], colour=col}) --car is on his destination
        else if length (filter (\(pos,_) -> pos==next) dyn) > 0    --if a car is on the next field
-               then ((xa,ya), Car idC (xd,yd) pathOld col)                --then it will remain on the current place
+               then if length (filter (\(pos,_) -> pos==otherNext) dyn) > 0
+                        then ((xa,ya), Car idC (xd,yd) pathOld col)                --then it will remain on the current place
+                        else (otherNext, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)
                else if next == (-1,-1)
                        then ((xa,ya), Car idC (xd,yd) [] col)           --car has lost it's way
-                       else (next, Car idC (xd,yd) (pathOld++[(xa,ya)]) col)      --otherwise it will move on
+                       else (next, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)      --otherwise it will move on
+    
     where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) pathOld
+          nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
+          otherNext = if length nextRoadFromCell >1
+                         then head $nextRoadFromCell\\[next]
+                         else next
 
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
