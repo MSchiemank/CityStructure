@@ -9,8 +9,6 @@ import Parse
 import Run
 import System.Random 
 
---import Debug.Trace
-
 
 ----------------------------- global variable -----------------------------------
 emptyCity :: City
@@ -26,7 +24,7 @@ spaceCell :: Int
 spaceCell = 8
 
 
----------------------------- < main > -------------------------------------------
+---------------------------- < main > -------------------------------
 --Starting the programm with the gui
 main :: IO()
 main = do 
@@ -41,6 +39,7 @@ main = do
           mainWindow   <- xmlGetWidget xml castToWindow "window1"
           open <- xmlGetWidget xml castToToolButton "open"
           saveButton <- xmlGetWidget xml castToToolButton "save"
+          randomButton <- xmlGetWidget xml castToToolButton "randomCity"
           reset <- xmlGetWidget xml castToToolButton "reset"
           start <- xmlGetWidget xml castToToolButton "start"
           stop <- xmlGetWidget xml castToToolButton "stop"
@@ -48,6 +47,7 @@ main = do
           speedButton <- xmlGetWidget xml castToSpinButton "speed"
           grid <- xmlGetWidget xml castToCheckButton "gridButton"
           drawarea <- xmlGetWidget xml castToDrawingArea "drawingarea"
+
 
 ------------------------------------
 -- initialising the IORef variables
@@ -73,7 +73,8 @@ main = do
 ------------------------------------
 -- setting the sensitivity of the whole buttons and the activity of the grid button
           mapM_ (flip widgetSetSensitivity False) [reset,stop,start,step,saveButton]
-          toggleButtonSetActive grid True --False
+          mapM_ (flip widgetSetSensitivity True) [open,randomButton]
+          toggleButtonSetActive grid True 
 
 
 ------------------------------------
@@ -102,7 +103,8 @@ main = do
                                 -- the file path to IORef 
                                 modifyIORef fileIO (\_ -> file)
                                 -- city will be generated and stored in IORef
-                                modifyIORef cityIO (\_ -> parse genIO $doInputString file)
+                                modifyIORef cityIO 
+                                    (\_ -> parse genIO $doInputString file)
                                 -- a new title for the mainWindow
                                 windowSetTitle mainWindow $"City Structure - "++filePath
                                 -- widget will be resized 
@@ -129,6 +131,29 @@ main = do
                                 writeFile fileSavePath string)
 
 
+-- The random dialoge
+          _ <- onToolButtonClicked randomButton
+             $ do randValIO <- newIORef [(-1)::Int]
+                  showRandDialog xml randValIO
+                  randVal <- readIORef randValIO
+                  windowSetTitle mainWindow $"City Structure - Random City"
+                  if randVal /= [(-1)]
+                   then do 
+                           let 
+                               input = doInputString rand
+                               rand = randomCity randVal genIO
+                           modifyIORef cityIO 
+                               (\_ -> parse genIO input)
+                           (w, h) <- dynSize cityIO
+                           widgetSetSizeRequest drawarea w h
+                           mapM_ (flip widgetSetSensitivity True) 
+                               [start,step,saveButton]
+                           update grid drawarea cityIO
+                   else return ()
+                      
+
+
+
 
 -- resets the drawingarea to the beginnig
           _ <- onToolButtonClicked reset $ do
@@ -145,14 +170,15 @@ main = do
 -- starts the automatic by setting the autoIO flag
           _ <- onToolButtonClicked start $ do
                 modifyIORef autoIO $ do return True
-                mapM_ (flip widgetSetSensitivity False) [open,reset,start,step]
+                mapM_ (flip widgetSetSensitivity False) 
+                    [open,saveButton,randomButton,reset,start,step]
                 mapM_ (flip widgetSetSensitivity True) [stop]
 
 -- stopps the automatic 
           _ <- onToolButtonClicked stop $ do
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity False) [stop]
-                mapM_ (flip widgetSetSensitivity True) [open,reset,start,step]
+                mapM_ (flip widgetSetSensitivity True) [open,saveButton,reset,start,step]
 
 
 -- step by step the drawingarea will be changed          
@@ -490,6 +516,155 @@ dynSize cityIO = do
                   then spaceCell * fieldHeight
                   else minHeight
     return (winW, winH)
+
+
+-------------------- < showRandDialog > -----------------------------
+
+showRandDialog :: GladeXML -> IORef [Int] -> IO ()
+showRandDialog xml randValIO = do
+    randDialog <- xmlGetWidget xml castToDialog "randomDialog"
+    [widthSpin,heightSpin,horStreets,vertStreets,
+     signals,buildings,cars] <- mapM 
+                (xmlGetWidget xml castToSpinButton) 
+                ["spinWidth","spinHeight","horStreets","vertStreets",
+                 "signals","buildings","cars"]
+
+-- setts the value and the sensitivity
+    mapM_ (flip widgetSetSensitivity True) 
+        [widthSpin,heightSpin,signals]
+{-    mapM_ (flip widgetSetSensitivity False) 
+        [horStreets,vertStreets,signals,buildings,cars]
+    mapM_ (flip spinButtonSetValue 0) [signals,buildings,cars]
+    mapM_ (flip spinButtonSetValue 1) 
+        [horStreets,vertStreets]
+    mapM_ (flip spinButtonSetValue 4) [widthSpin,heightSpin]-}
+
+    widgetShow randDialog
+
+-- the events  
+-- width spinning box  
+-- It reads the value of the spinbutton, activates the road spin 
+-- buttons, if width and height was changed
+    _ <- afterValueSpinned widthSpin $do 
+        valWi <- spinButtonGetValue widthSpin
+        valHe <- spinButtonGetValue heightSpin
+        valHo <- spinButtonGetValue horStreets
+        valVe <- spinButtonGetValue vertStreets
+        spinButtonSetRange 
+            vertStreets 1 
+            $valWi * 0.25
+        spinButtonSetRange 
+            buildings 0 
+            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+        range <- spinButtonGetRange buildings
+        if snd range > 0
+            then mapM_ (flip widgetSetSensitivity True)
+                [buildings]
+            else mapM_ (flip widgetSetSensitivity False)
+                [buildings,cars]
+        if valWi >= 8
+            then mapM_ (flip widgetSetSensitivity True)
+                [vertStreets]
+            else mapM_ (flip widgetSetSensitivity False)
+                [vertStreets]
+
+
+-- height spinning box  
+    _ <- afterValueSpinned heightSpin $do 
+        valWi <- spinButtonGetValue widthSpin
+        valHe <- spinButtonGetValue heightSpin
+        valHo <- spinButtonGetValue horStreets
+        valVe <- spinButtonGetValue vertStreets
+        spinButtonSetRange
+            horStreets 1   
+            $valHe * 0.25
+        spinButtonSetRange 
+            buildings 0 
+            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+        range <- spinButtonGetRange buildings
+        if snd range > 0
+            then mapM_ (flip widgetSetSensitivity True)
+                [buildings]
+            else mapM_ (flip widgetSetSensitivity False)
+                [buildings,cars]
+        if valHe >= 8
+            then mapM_ (flip widgetSetSensitivity True)
+                [horStreets]
+            else mapM_ (flip widgetSetSensitivity False)
+                [horStreets]
+
+
+-- a number of the horizontal streets in the city
+    _ <- afterValueSpinned horStreets $do
+        valWi <- spinButtonGetValue widthSpin
+        valHe <- spinButtonGetValue heightSpin
+        valHo <- spinButtonGetValue horStreets
+        valVe <- spinButtonGetValue vertStreets
+        spinButtonSetRange
+            signals 0
+            $ valVe*valHo
+        spinButtonSetRange 
+            buildings 0 
+            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+        range <- spinButtonGetRange buildings
+        if snd range > 0
+            then mapM_ (flip widgetSetSensitivity True)
+                [buildings]
+            else mapM_ (flip widgetSetSensitivity False)
+                [buildings,cars]
+            
+            
+-- a number of the vertical streets in the city
+    _ <- afterValueSpinned vertStreets $do
+        valWi <- spinButtonGetValue widthSpin
+        valHe <- spinButtonGetValue heightSpin
+        valHo <- spinButtonGetValue horStreets
+        valVe <- spinButtonGetValue vertStreets
+        spinButtonSetRange
+            signals 0
+            $ valVe*valHo
+        spinButtonSetRange 
+            buildings 0 
+            $ 2*valWi*valHo + 2*valHe*valVe - 16*valVe*valHo
+        range <- spinButtonGetRange buildings
+        if snd range > 0
+            then mapM_ (flip widgetSetSensitivity True)
+                [buildings]
+            else mapM_ (flip widgetSetSensitivity False)
+                [buildings,cars]
+            
+
+
+-- a number of the buildings in the city
+    _ <- afterValueSpinned buildings $do
+        valBuild <- spinButtonGetValue buildings
+        spinButtonSetRange
+            cars 0
+            $ valBuild * 0.5
+        range <- spinButtonGetRange cars
+        if snd range > 0
+            then mapM_ (flip widgetSetSensitivity True)
+                [cars]
+            else mapM_ (flip widgetSetSensitivity False)
+                [cars]
+
+
+-- the response action
+    resp <- dialogRun randDialog
+    case resp of 
+        ResponseAccept -> do
+            list <- mapM
+                spinButtonGetValueAsInt
+                [widthSpin,heightSpin,horStreets,vertStreets,
+                signals,buildings,cars]
+            modifyIORef randValIO $return list
+        ResponseReject  -> return ()
+        _               -> return ()
+
+    widgetHide randDialog
+
+          
+          
 
 ------------------------------------------------------------------------------------------
 -- The next segment is the writing on the console and is not more used by the prog.
