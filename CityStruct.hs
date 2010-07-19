@@ -142,6 +142,8 @@ main = do
                            let 
                                input = doInputString rand
                                rand = randomCity randVal genIO
+                           modifyIORef fileIO
+                               (\_ -> rand)
                            modifyIORef cityIO 
                                (\_ -> parse genIO input)
                            (w, h) <- dynSize cityIO
@@ -178,7 +180,7 @@ main = do
           _ <- onToolButtonClicked stop $ do
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity False) [stop]
-                mapM_ (flip widgetSetSensitivity True) [open,saveButton,reset,start,step]
+                mapM_ (flip widgetSetSensitivity True) [open,saveButton,randomButton,reset,start,step]
 
 
 -- step by step the drawingarea will be changed          
@@ -524,10 +526,11 @@ showRandDialog :: GladeXML -> IORef [Int] -> IO ()
 showRandDialog xml randValIO = do
     randDialog <- xmlGetWidget xml castToDialog "randomDialog"
     [widthSpin,heightSpin,horStreets,vertStreets,
-     signals,buildings,cars] <- mapM 
+     signals,buildings,cars,minLength,maxLength] <- mapM 
                 (xmlGetWidget xml castToSpinButton) 
                 ["spinWidth","spinHeight","horStreets","vertStreets",
-                 "signals","buildings","cars"]
+                 "signals","buildings","cars","minLengthSpin",
+                 "maxLengthSpin"]
 
 -- setts the value and the sensitivity
     mapM_ (flip widgetSetSensitivity True) 
@@ -649,6 +652,33 @@ showRandDialog xml randValIO = do
                 [cars]
 
 
+-- the signal spinnbutton was pressed
+    _ <- afterValueSpinned signals $do
+        valSign <- spinButtonGetValueAsInt signals
+        if valSign > 0
+            then mapM_ (flip widgetSetSensitivity True)
+                [minLength,maxLength]
+            else mapM_ (flip widgetSetSensitivity False)
+                [minLength,maxLength]
+
+-- the minLength spinnbutton was pressed
+    _ <- afterValueSpinned minLength $do
+        valMin <- spinButtonGetValue minLength
+        valMax <- spinButtonGetValue maxLength
+        if valMin > valMax
+            then spinButtonSetValue maxLength valMin
+            else return ()
+
+-- the maxLength spinnbutton was pressed
+    _ <- afterValueSpinned maxLength $do
+        valMin <- spinButtonGetValue minLength
+        valMax <- spinButtonGetValue maxLength
+        if valMax < valMin
+            then spinButtonSetValue minLength valMax
+            else return ()
+
+
+
 -- the response action
     resp <- dialogRun randDialog
     case resp of 
@@ -656,7 +686,7 @@ showRandDialog xml randValIO = do
             list <- mapM
                 spinButtonGetValueAsInt
                 [widthSpin,heightSpin,horStreets,vertStreets,
-                signals,buildings,cars]
+                signals,buildings,cars,minLength,maxLength]
             modifyIORef randValIO $return list
         ResponseReject  -> return ()
         _               -> return ()

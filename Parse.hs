@@ -7,8 +7,6 @@ import System.Random
 import Control.Monad.Trans
 import System.IO.Unsafe
 
-import Debug.Trace
-
 --Datatype setting
 data Cell = Road    { ident         :: Int,
                       name          :: String,
@@ -537,7 +535,8 @@ carString list =
 
 ---------------------------- < randomCity > -------------------------
 randomCity :: [Int] -> IORef StdGen -> String
-randomCity (cityWidth:cityHeight:hor:vert:sign:build:carsNumb:[])
+randomCity (cityWidth:cityHeight:hor:vert:
+ sign:build:carsNumb:minL:maxL:[])
  genIO = 
     "width = " ++ show cityWidth ++ "\nheight = " ++
     show cityHeight ++ "\n:Roads\n" ++ unlines roadStr ++ 
@@ -557,10 +556,31 @@ randomCity (cityWidth:cityHeight:hor:vert:sign:build:carsNumb:[])
           horRoadList = concat $map buildListFromTuple horizontalRoads
           vertRoadList = concat $map buildListFromTuple verticalRoads
           junctions = sort $intersect vertRoadList horRoadList
-          signals = getSignals junctions sign genIO
-          buildings = "\n"
-          cars = "\n"
+          signals = getSignals junctions sign minL maxL genIO
+          rawBuildingList = 
+            nub$
+            concat $(map maybeBuildingPositions horRoadList)++
+                    (map maybeBuildingPositions vertRoadList)
+          buildListWithSignPos = rawBuildingList \\
+                         (horRoadList++vertRoadList)
+          buildListWithErrorPos = buildListWithSignPos \\
+            (concat $ map maybeBuildingPositions junctions)
+          buildingList = filter (\(x,y) -> x >= 1 && x <= cityWidth &&
+                                           y >= 1 && y <= cityHeight)
+                                buildListWithErrorPos
+          buildingTuple = getBuildings (sort buildingList) build genIO
+          buildings = unlines $
+                map (\(i,pos) -> show i ++ ";" ++ show i ++ ";" ++
+                                 show pos) buildingTuple
+          cars = unlines $ getCars buildingTuple carsNumb genIO
 randomCity _ _ = error "The random city gets an unknwon list!"
+
+
+maybeBuildingPositions :: Pos -> [Pos]
+maybeBuildingPositions (x,y) = 
+    (x-1,y-1):(x,y-1):(x+1,y-1):
+    (x-1,y  ):(x,y  ):(x+1,y  ):
+    (x-1,y+1):(x,y+1):(x+1,y+1):[]
 
 
 buildListFromTuple :: (Int,(Pos,Pos,Pos,Pos)) -> [Pos]
@@ -590,10 +610,15 @@ getRoads x y z horizontal genIO streets =
     return (streetId ,position)
 
 
-getSignals :: [Pos] -> Int -> IORef StdGen -> String
-getSignals _ 0 _ = []
-getSignals [] _ _ = []
-getSignals list i genIO = trace (show list) $
+-- from the list of the whole junctions it select a random roadpiece
+-- After that it rebuilds the whole junction, generates a random
+-- signallength, an id and build the string for the parser.
+-- Then it will extract the used junction from the list and reduces
+-- the counter that is shown, how much signal must be generated.
+getSignals :: [Pos] -> Int -> Int -> Int -> IORef StdGen -> String
+getSignals _ 0 _ _ _= []
+getSignals [] _ _ _ _= []
+getSignals list i minL maxL genIO = 
   unsafePerformIO $ liftIO $do
     gen <- readIORef genIO
     let (pos,genNew) = randomR (0, (length list) - 1) gen
@@ -602,7 +627,7 @@ getSignals list i genIO = trace (show list) $
                                (x-1,y)  ,(x,y  ),(x+1,y  ),
                                (x-1,y+1),(x,y+1),(x+1,y+1)]
         junction = sort $ intersect list maybeJunctionFields
-        (signalLength,genNew2) = randomR (3::Int,20) genNew
+        (signalLength,genNew2) = randomR (minL,maxL) genNew
         sig1Pos = show ((fst $junction!!0)-1,(snd $junction!!0)-1)
         sig2Pos = show ((fst $junction!!1)-1,(snd $junction!!1)+1)
         sig3Pos = show ((fst $junction!!2)+1,(snd $junction!!2)-1)
@@ -620,13 +645,34 @@ getSignals list i genIO = trace (show list) $
                sig2Id++"];["++sig1Id++","++sig4Id++"]\n"
         sig4 = sig4Id++";"++sig4Pos++";green;"++sigLength++";["++
                sig1Id++"];["++sig2Id++","++sig3Id++"]\n"
-    putStrLn $sig1++sig2++sig3++sig4
     modifyIORef genIO (\_ -> genNew2)
     return $sig1++sig2++sig3++sig4++
-            getSignals (list\\junction) (i-1) genIO
+            getSignals (list\\junction) (i-1) minL maxL genIO
             
 
+-- generates the buildings from the possible positions
+getBuildings :: [Pos] -> Int -> IORef StdGen -> [(Int,Pos)]
+getBuildings _ 0 _ = []
+getBuildings list i genIO = unsafePerformIO $ liftIO $ do
+    gen <- readIORef genIO
+    let (randPos,genNew) = randomR (0, (length list)-1) gen
+        pos = list!!randPos
+    modifyIORef genIO (\_ -> genNew)
+    return $(i,pos):getBuildings (list\\[pos]) (i-1) genIO
 
 
-
-
+getCars :: [(Int,Pos)] -> Int -> IORef StdGen -> [String]
+getCars _ 0 _ = []
+getCars list i genIO = unsafePerformIO $ liftIO$ do
+    gen <- readIORef genIO
+    let (randPos, genNew) = randomR (0,(length list)-1) gen
+        posTup = list!!randPos
+        listNew = list\\[posTup]
+        pos = "H"++(show $fst $posTup)
+        (randEnd, genNew2) = randomR (0,(length listNew)-1) genNew
+        endTup = listNew!!randEnd
+        end = "H"++(show $fst endTup)
+        identCar = show i
+    modifyIORef genIO (\_ -> genNew2)
+    return $ (identCar++";"++pos++";"++end):
+            getCars (listNew\\[endTup]) (i-1) genIO
