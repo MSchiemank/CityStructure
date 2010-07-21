@@ -283,9 +283,9 @@ cityDraw grid city space w h = do
        else return()
 
     mapM_ (drawStaticCell stat space) arayPos         --draw the static of the city
-    stroke
+--    stroke
     mapM_ (drawDynamicCell stat space) dyn            --draw the dynamic of the city
-    stroke
+--    stroke
     where 
           stat = getCityStatic city
           dyn = getCityDynamic city
