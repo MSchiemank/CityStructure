@@ -9,7 +9,6 @@ import Parse
 import Run
 import System.Random 
 
-
 ----------------------------- global variable -----------------------------------
 emptyCity :: City
 emptyCity = City 0 0 [] []
@@ -304,9 +303,11 @@ drawDynamicCell staticC space (pos,cell) = case cell of
                                 then setSourceRGB 0 1 0       -- for green colour
                                 else setSourceRGB 1 0 0       -- for red colour
                              drawArcFilled pos space);
-     (Car _ _ oldPath (r, g, b))-> (do 
+     (Car _ (x,y) oldPath (r, g, b))-> (do 
             setSourceRGB r g b       -- draw the cars with their colours
-            drawTriangleFilled pos oldPath space $getCell staticC pos);
+            drawTriangleFilled pos oldPath space $getCell staticC pos
+            let house = filterHouseAt staticC (x,y)
+            drawArcFilled house space);
      (Road _ _ _)   -> error "No Road allowed in dynamic city list!";
      (Building _ _) -> error "No Building allowed in dynamic city list!";
      Empty          -> error "No Empty piece allowed in dynamic city list!"

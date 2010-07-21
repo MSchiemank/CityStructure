@@ -227,3 +227,20 @@ findWayInCorrectDirection _ _ _ = error "To few ways in findWayInCorrectDirectio
 
 
 
+filterHouseAt :: [[Cell]] -> Pos -> Pos
+filterHouseAt staticC (x,y) = 
+    (\(position,_) -> position) $head houses
+    where 
+          lX = length $ staticC!!0
+          lY = length staticC
+          array = [(x',y') |  y' <- [1..lY], x' <- [1..lX]]
+          cell = zip array $concat staticC
+          bordering = filter (\(pos,_) -> pos==(x-1,y) ||
+                                          pos==(x+1,y) ||
+                                          pos==(x,y-1) ||
+                                          pos==(x,y+1)) cell
+          houses = filter (\(_,bordCell) -> case bordCell of
+                            {Building _ _ -> True;
+                     _                    -> False}) bordering
+
+
