@@ -227,7 +227,7 @@ thread cityIO speedIO autoIO drawarea grid = do
         else return ()
 
 
-    thread cityIO speedIO autoIO drawarea grid --((\x -> if auto then (x+1) else x) i)       --Endless loop
+    thread cityIO speedIO autoIO drawarea grid --Endless loop
 
 -----------------------------------------------------------------------------------------
 
@@ -323,6 +323,7 @@ drawArcFilled (x,y) space = do
 --    setLineWidth (s*0.3)
     arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi) --0.5 for the middle of the field and s is for the space of one piece
     fill
+    stroke
 
 drawTriangleFilled :: Pos -> [Pos] -> Int -> Cell -> Render ()
 drawTriangleFilled (x,y) oldPos space staticC = do
@@ -346,7 +347,6 @@ drawTriangleFilled (x,y) oldPos space staticC = do
                                then drawTriangleUp (xd,yd) s
                                else drawTriangleLeft (xd,yd) s
                                            
-    fill
     where oldX = fst $ head $ reverse oldPos
           oldY = snd $ head $ reverse oldPos
           nextX = fst $ head $ (\(Road _ _ nextR) -> nextR) staticC
@@ -361,6 +361,8 @@ drawTriangleUp (x,y) s = do
     lineTo ((x-0.1)*s) ((y-0.1)*s)
     lineTo ((x-0.9)*s) ((y-0.1)*s)
     closePath
+    fill
+    stroke
 
 drawTriangleDown:: (Double, Double) -> Double -> Render ()
 drawTriangleDown (x,y) s = do
@@ -368,6 +370,8 @@ drawTriangleDown (x,y) s = do
     lineTo ((x-0.1)*s) ((y-0.9)*s)
     lineTo ((x-0.5)*s) ((y-0.1)*s)
     closePath
+    fill
+    stroke
 
 
 drawTriangleLeft:: (Double, Double) -> Double -> Render ()
@@ -376,6 +380,8 @@ drawTriangleLeft (x,y) s = do
     lineTo ((x-0.1)*s) ((y-0.1)*s)
     lineTo ((x-0.9)*s) ((y-0.5)*s)
     closePath
+    fill
+    stroke
 
 
 drawTriangleRight:: (Double, Double) -> Double -> Render ()
@@ -384,6 +390,8 @@ drawTriangleRight (x,y) s = do
     lineTo ((x-0.1)*s) ((y-0.5)*s)
     lineTo ((x-0.9)*s) ((y-0.1)*s)
     closePath
+    fill
+    stroke
 
 
 {- it draws all cell connections for the roads and the buildings
@@ -416,10 +424,12 @@ drawBuilding space (x,y) = do
     lineTo ((xd-0.8)*s) ((yd-0.5)*s)
     lineTo ((xd-0.2)*s) ((yd-0.5)*s)
     closePath
+    stroke
 
     moveTo ((xd-0.9)*s) ((yd-0.5)*s)
     lineTo ((xd-0.5)*s) ((yd-0.8)*s)
     lineTo ((xd-0.1)*s) ((yd-0.5)*s)
+    stroke
 
 
 -- This draws a little connection from source to destination street part of a single street field
@@ -428,6 +438,7 @@ drawStreetPart space (x1,y1) (x2,y2) = do
     let s = fromIntegral space
     moveTo (s*((fromIntegral x1)-0.5)) (s*((fromIntegral y1)-0.5))
     lineTo (s*((fromIntegral x2)-0.5)) (s*((fromIntegral y2)-0.5)) 
+    stroke
 
 
 
