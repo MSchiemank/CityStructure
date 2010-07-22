@@ -170,10 +170,14 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
        then ((-1,-1), Car {ident=0, dest=(xd,yd), iWasThere=[], colour=col}) --car is on his destination
-       else if length (filter (\(pos,_) -> pos==next) dyn) > 0    --if a car is on the next field
-               then if length (filter (\(pos,_) -> pos==otherNext) dyn) > 0
-                        then ((xa,ya), Car idC (xd,yd) pathOld col)                --then it will remain on the current place
-                        else (otherNext, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)
+       else if length carOnNext > 0    --if a car is on the next field
+        --checks, if a deadlock occures for 5 times
+               then if oldCell == (xa,ya) && length carOnOtherNext <= 0
+                -- shows, if it has waited 5 times and if the otherNext field is 
+                -- not occupied and goes on.
+                       then (otherNext, Car idC (xd,yd) (pathOld++[(xa,ya)]) col)
+                --else it will remain on the current place
+                       else ((xa,ya), Car idC (xd,yd) (pathOld++[(xa,ya)]) col)
                else if next == (-1,-1)
                        then ((xa,ya), Car idC (xd,yd) [] col)           --car has lost it's way
                        else (next, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)      --otherwise it will move on
@@ -183,7 +187,12 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
           otherNext = if length nextRoadFromCell >1
                          then head $nextRoadFromCell\\[next]
                          else next
-
+          carOnNext = filter (\(pos,_) -> pos==next) dyn
+          carOnOtherNext = filter (\(pos,_) -> pos==otherNext) dyn
+          oldCell = if (length pathOld) > 4
+                        then (reverse pathOld)!!4
+                        else (-1,-1)
+                            
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
            

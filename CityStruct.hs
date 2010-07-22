@@ -1,6 +1,7 @@
 module Main where 
 import Control.Concurrent 
 import Data.IORef
+import Data.List (nub, (\\))
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
 import qualified Graphics.UI.Gtk.Gdk.Events as Events
@@ -353,8 +354,8 @@ drawTriangleFilled (x,y) oldPos space staticC = do
                                then drawTriangleUp (xd,yd) s
                                else drawTriangleLeft (xd,yd) s
                                            
-    where oldX = fst $ head $ reverse oldPos
-          oldY = snd $ head $ reverse oldPos
+    where oldX = fst $ head $ reverse $(nub oldPos)\\[(x,y)]
+          oldY = snd $ head $ reverse $(nub oldPos)\\[(x,y)]
           nextX = fst $ head $ (\(Road _ _ nextR) -> nextR) staticC
           nextY = snd $ head $ (\(Road _ _ nextR) -> nextR) staticC
 
