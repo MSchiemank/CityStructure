@@ -226,10 +226,14 @@ findWayInCorrectDirection staticC (xd,yd) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2
 findWayInCorrectDirection _ _ _ = error "To few ways in findWayInCorrectDirection!"
 
 
-
+-- the house at the finishing point to show it with a circle
+-- If no house is at that position, it will choose the destination 
+-- position itself!
 filterHouseAt :: [[Cell]] -> Pos -> Pos
 filterHouseAt staticC (x,y) = 
-    (\(position,_) -> position) $head houses
+    if null houses 
+       then (x,y)
+       else (\(position,_) -> position) $head houses
     where 
           lX = length $ staticC!!0
           lY = length staticC

@@ -302,12 +302,12 @@ drawDynamicCell staticC space (pos,cell) = case cell of
                              if stat
                                 then setSourceRGB 0 1 0       -- for green colour
                                 else setSourceRGB 1 0 0       -- for red colour
-                             drawArcFilled pos space);
+                             drawArcFilled pos space 0.3);
      (Car _ (x,y) oldPath (r, g, b))-> (do 
             setSourceRGB r g b       -- draw the cars with their colours
             drawTriangleFilled pos oldPath space $getCell staticC pos
-            let house = filterHouseAt staticC (x,y)
-            drawArcFilled house space);
+            let point = filterHouseAt staticC (x,y)
+            drawArcFilled point space 0.2);
      (Road _ _ _)   -> error "No Road allowed in dynamic city list!";
      (Building _ _) -> error "No Building allowed in dynamic city list!";
      Empty          -> error "No Empty piece allowed in dynamic city list!"
@@ -316,13 +316,15 @@ drawDynamicCell staticC space (pos,cell) = case cell of
 
 
 
-drawArcFilled :: Pos -> Int -> Render ()
-drawArcFilled (x,y) space = do
+drawArcFilled :: Pos -> Int -> Double -> Render ()
+drawArcFilled (x,y) space radius = do
     let s = fromIntegral space
         xd = fromIntegral x
         yd = fromIntegral y
 --    setLineWidth (s*0.3)
-    arc ((xd-0.5)*s) ((yd-0.5)*s) (0.3*s) 0 (2*pi) --0.5 for the middle of the field and s is for the space of one piece
+    if radius == 0.2
+        then arc ((xd-0.5)*s) ((yd-0.3)*s) (radius*s) 0 (2*pi) --0.5 for the middle of the field and s is for the space of one piece
+        else arc ((xd-0.5)*s) ((yd-0.5)*s) (radius*s) 0 (2*pi)
     fill
     stroke
 
