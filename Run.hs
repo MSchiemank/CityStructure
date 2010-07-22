@@ -12,11 +12,17 @@ nextStep city =
           dynamic = allCarsWithoutTwoOnOneCell}
     where 
           dyn = getCityDynamic city
+          stat = getCityStatic city
+          -- extract the cars with blinked house
+          withoutCarsOnDest = filter (\(pos,_) -> pos /= (-1,-1)) dyn
           -- build the next way of all cars
-          allNextCars = (map (nextCarsAndSignals (getCityStatic city) dyn) dyn) 
+          allNextCars = map (nextCarsAndSignals stat
+                                                withoutCarsOnDest) 
+                            withoutCarsOnDest 
           -- cars with position (-1,-1) are on their destination and 
           -- are filtered out
-          withDoubleCars = filter (\(pos,_) -> pos /= (-1,-1)) allNextCars
+          destCars = filter (\(pos,_) -> pos == (-1,-1)) allNextCars
+          withDoubleCars = allNextCars\\destCars
           --returns a list like that: [[pos1,pos2],[pos3],[pos4]...]
           searchDoubleForEachCell = map (\(pos1,_) -> carDoubleSearch pos1) withDoubleCars 
           carDoubleSearch :: Pos -> [(Pos,Cell)]
@@ -24,7 +30,10 @@ nextStep city =
           --extract the double cars on one Cell
           extractDouble = nub $ filter (\x -> length x >1) searchDoubleForEachCell
           --this will correct the two cars on one cell phenomenon
-          allCarsWithoutTwoOnOneCell = concat noTwoCarsOnPlace ++ noDoubleCarsInside
+          allCarsWithoutTwoOnOneCell =
+             concat noTwoCarsOnPlace ++ 
+             noDoubleCarsInside ++
+             destCars
           noTwoCarsOnPlace = map rightBeforeLeft extractDouble
           noDoubleCarsInside = withDoubleCars\\(concat extractDouble) 
 
@@ -160,7 +169,7 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
     if (xa,ya) == (xd,yd) || 
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
-       then ((-1,-1), Car {ident=0, dest=(-1,-1), iWasThere=[], colour=col}) --car is on his destination
+       then ((-1,-1), Car {ident=0, dest=(xd,yd), iWasThere=[], colour=col}) --car is on his destination
        else if length (filter (\(pos,_) -> pos==next) dyn) > 0    --if a car is on the next field
                then if length (filter (\(pos,_) -> pos==otherNext) dyn) > 0
                         then ((xa,ya), Car idC (xd,yd) pathOld col)                --then it will remain on the current place
@@ -198,7 +207,9 @@ findWay staticC destination list=
 -- builds the wight of the next cell
 buildWeight :: Pos -> [Pos] -> [(Pos, Pos)]
 buildWeight (xd,yd) list =
-    map (\(x1,y1) -> (((if xd<x1 then x1-xd else xd-x1),(if yd<y1 then y1-yd else yd-y1)),(x1,y1))) list
+    map (\(x1,y1) -> (((if xd<x1 then x1-xd else xd-x1),
+                       (if yd<y1 then y1-yd else yd-y1)),(x1,y1))
+        ) list
 
 
 {- This one decides which next cell will be used. If the weight from one
@@ -207,7 +218,8 @@ buildWeight (xd,yd) list =
     way will be taken.-}
 findWayInCorrectDirection :: [[Cell]] -> Pos -> [(Pos, Pos)] -> Pos
 findWayInCorrectDirection _ _ [] = (-1,-1)
-findWayInCorrectDirection staticC (xd,yd) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs) =
+findWayInCorrectDirection staticC (xd,yd) 
+  (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs) = 
     if (wx1+wy1) == (wx2+wy2)
        then if nextWeight1==nextWeight2
                then if (maximum [wx1,wy1] < maximum [wx2,wy2])
@@ -217,12 +229,13 @@ findWayInCorrectDirection staticC (xd,yd) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2
                        then (x1,y1)
                        else (x2,y2)
        else (\(_,pos) -> pos) (minimum (map (\((wx,wy),pos) -> ((wx+wy),pos)) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs)))
-       where nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
-             weight1 = buildWeight (xd,yd) nextCellNext1
-             nextCellNext1 = (\(Road _ _ next) -> next) (getCell staticC (x1,y1))
-             nextWeight2 = minimum (map (\((x,y),_) -> x+y) weight2)
-             weight2 = buildWeight (xd,yd) nextCellNext2
-             nextCellNext2 = (\(Road _ _ next) -> next) (getCell staticC (x2,y2))
+    
+    where nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
+          weight1 = buildWeight (xd,yd) nextCellNext1
+          nextCellNext1 = (\(Road _ _ next) -> next) (getCell staticC (x1,y1))
+          nextWeight2 = minimum (map (\((x,y),_) -> x+y) weight2)
+          weight2 = buildWeight (xd,yd) nextCellNext2
+          nextCellNext2 = (\(Road _ _ next) -> next) (getCell staticC (x2,y2))
 findWayInCorrectDirection _ _ _ = error "To few ways in findWayInCorrectDirection!"
 
 

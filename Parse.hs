@@ -298,7 +298,8 @@ findPos build street pos = if head pos=='H'
 {- After the id of the house was found, it will search above, below, left and right
    of the house for a road. First roadpiece will be used as startingpoint of the car.-}
 findStreetForBuilding :: [(Pos, Cell)] -> [(Pos, Cell)] -> Int -> Pos
-findStreetForBuilding build street idB = head positions
+findStreetForBuilding build street idB = 
+    head positions
     where buildingPos = [posB | (posB, _)<-(filter (\(_,Building identB _) -> identB ==idB) build)]
           positions = [posS | (posS, _) <- street, (x,y) <- buildingPos,
                        posS==(x,y-1)|| posS==(x-1,y) || posS==(x+1,y) ||

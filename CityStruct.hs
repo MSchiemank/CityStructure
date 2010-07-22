@@ -305,9 +305,12 @@ drawDynamicCell staticC space (pos,cell) = case cell of
                              drawArcFilled pos space 0.3);
      (Car _ (x,y) oldPath (r, g, b))-> (do 
             setSourceRGB r g b       -- draw the cars with their colours
-            drawTriangleFilled pos oldPath space $getCell staticC pos
             let point = filterHouseAt staticC (x,y)
-            drawArcFilled point space 0.2);
+            if pos == (-1,-1)
+               then drawBuilding space point
+               else do
+                drawTriangleFilled pos oldPath space $getCell staticC pos
+                drawArcFilled point space 0.2);
      (Road _ _ _)   -> error "No Road allowed in dynamic city list!";
      (Building _ _) -> error "No Building allowed in dynamic city list!";
      Empty          -> error "No Empty piece allowed in dynamic city list!"
@@ -401,9 +404,7 @@ drawTriangleRight (x,y) s = do
    for each static cell will be a connection to every cell, which are in the nextRoad list-}
 drawStaticCell :: [[Cell]] -> Int -> Pos -> Render ()
 drawStaticCell cellList space pos = do
-    let s = fromIntegral space
     setSourceRGB 0 0 0
-    setLineWidth (s*0.1)
     case cell of
           { (Road _ _ nRoad)            -> mapM_ (drawStreetPart space pos) nRoad;
             (Building _ _)              -> drawBuilding space pos;
@@ -420,7 +421,7 @@ drawBuilding space (x,y) = do
     let s = fromIntegral space
         xd = fromIntegral x
         yd = fromIntegral y
-    setSourceRGB 0 0 0
+--    setSourceRGB 0 0 0
     setLineWidth (s*0.05)
     moveTo ((xd-0.2)*s) ((yd-0.1)*s)
     lineTo ((xd-0.8)*s) ((yd-0.1)*s)
@@ -439,6 +440,7 @@ drawBuilding space (x,y) = do
 drawStreetPart :: Int -> Pos -> Pos -> Render ()
 drawStreetPart space (x1,y1) (x2,y2) = do
     let s = fromIntegral space
+    setLineWidth (s*0.1)
     moveTo (s*((fromIntegral x1)-0.5)) (s*((fromIntegral y1)-0.5))
     lineTo (s*((fromIntegral x2)-0.5)) (s*((fromIntegral y2)-0.5)) 
     stroke
