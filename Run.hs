@@ -229,9 +229,6 @@ carStep _ _ _ _ = error "Must be a car cell in carStep!"
 -- Check the length of the next cell list.
 nextField :: [[Cell]]  -> Cell -> Pos -> [Pos] -> Pos
 nextField staticC (Road _ _ next) destination oldWay = 
-{-    if (length next) == 1
-        then head next
-        else-} 
         if (length possibleWays) /=1
                 then findWay staticC destination possibleWays next
                 else head possibleWays
