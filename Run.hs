@@ -178,9 +178,10 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
                        then (otherNext, Car idC (xd,yd) (pathOld++[(xa,ya)]) col)
                 --else it will remain on the current place
                        else ((xa,ya), Car idC (xd,yd) (pathOld++[(xa,ya)]) col)
-               else if next == (-1,-1)
-                       then ((xa,ya), Car idC (xd,yd) [] col)           --car has lost it's way
-                       else (next, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)      --otherwise it will move on
+               else (next, Car idC (xd,yd) (nub ((pathOld\\[(xa,ya)])++[(xa,ya)])) col)      --otherwise it will move on
+                    --if next == (-1,-1)
+                    --   then ((xa,ya), Car idC (xd,yd) [] col)           --car has lost it's way
+                    --   else (next, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)      --otherwise it will move on
     
     where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) pathOld
           nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
@@ -200,17 +201,21 @@ carStep _ _ _ _ = error "Must be a car cell in carStep!"
 -- Check the length of the next cell list.
 nextField :: [[Cell]]  -> Cell -> Pos -> [Pos] -> Pos
 nextField staticC (Road _ _ next) destination oldWay = 
-                 if (length possibleWays) /=1
-                    then findWay staticC destination possibleWays
-                    else head possibleWays
-                 where possibleWays = next\\oldWay                    
+    if (length next) == 1
+        then head next
+        else if (length possibleWays) /=1
+                then findWay staticC destination possibleWays next
+                else head possibleWays
+    where possibleWays = next\\oldWay                    
 nextField _ _ _ _ = error "Must be a road cell in nextField!"
 
 
 
-findWay :: [[Cell]] -> Pos -> [Pos] -> Pos
-findWay staticC destination list=
-        findWayInCorrectDirection staticC destination (buildWeight destination list)
+findWay :: [[Cell]] -> Pos -> [Pos] -> [Pos] -> Pos
+findWay staticC destination list nextList =
+        findWayInCorrectDirection staticC destination 
+            (buildWeight destination list)
+            (buildWeight destination nextList)
                      
 
 -- builds the wight of the next cell
@@ -225,10 +230,13 @@ buildWeight (xd,yd) list =
    of the way is more less than the other, that will be the next weight.
     If it's equal, then the wight form each next but one cell decides what
     way will be taken.-}
-findWayInCorrectDirection :: [[Cell]] -> Pos -> [(Pos, Pos)] -> Pos
-findWayInCorrectDirection _ _ [] = (-1,-1)
-findWayInCorrectDirection staticC (xd,yd) 
-  (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs) = 
+findWayInCorrectDirection :: [[Cell]]     -> 
+                             Pos          -> 
+                             [(Pos, Pos)] -> 
+                             [(Pos, Pos)] -> 
+                             Pos
+-- findWayInCorrectDirection _ _ [] = (-1,-1)
+findWayInCorrectDirection staticC destination choices nextCell = 
     if (wx1+wy1) == (wx2+wy2)
        then if nextWeight1==nextWeight2
                then if (maximum [wx1,wy1] < maximum [wx2,wy2])
@@ -237,15 +245,27 @@ findWayInCorrectDirection staticC (xd,yd)
                else if nextWeight1<nextWeight2
                        then (x1,y1)
                        else (x2,y2)
-       else (\(_,pos) -> pos) (minimum (map (\((wx,wy),pos) -> ((wx+wy),pos)) (((wx1,wy1),(x1,y1)):((wx2,wy2),(x2,y2)):xs)))
-    
-    where nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
+       else (\(_,pos) -> pos) $minimum $map 
+                (\((wx,wy),pos) -> ((wx+wy),pos)) ways
+                    
+    where (xd,yd) = destination
+          ways = if (length choices) == 2
+                    then choices
+                    else nextCell
+          [((wx1,wy1),(x1,y1)),((wx2,wy2),(x2,y2))] = 
+            if (length choices) == 2
+               then choices
+               else nextCell
+          nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
           weight1 = buildWeight (xd,yd) nextCellNext1
-          nextCellNext1 = (\(Road _ _ next) -> next) (getCell staticC (x1,y1))
+          nextCellNext1 = (\(Road _ _ next) -> next) 
+                          $getCell staticC (x1,y1)
           nextWeight2 = minimum (map (\((x,y),_) -> x+y) weight2)
           weight2 = buildWeight (xd,yd) nextCellNext2
-          nextCellNext2 = (\(Road _ _ next) -> next) (getCell staticC (x2,y2))
-findWayInCorrectDirection _ _ _ = error "To few ways in findWayInCorrectDirection!"
+          nextCellNext2 = (\(Road _ _ next) -> next) 
+                          $getCell staticC (x2,y2)
+--findWayInCorrectDirection _ _ _ = 
+--    error "To few ways in findWayInCorrectDirection!"
 
 
 -- the house at the finishing point to show it with a circle
