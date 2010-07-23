@@ -204,11 +204,9 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
                else --otherwise it will move on
                     (next, Car idC 
                                (xd,yd) 
-                               -- remove (xa,ya) for the first time it 
-                               -- appears and put it at the end of the list!
-                               (nub ((pathOld\\[(xa,ya)])++[(xa,ya)]))
+                               newOldNext
                                col)
-
+    
     where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) pathOld
           nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
           otherNext = if length nextRoadFromCell >1
@@ -219,6 +217,10 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
           oldCell = if (length pathOld) > 4
                         then (reverse pathOld)!!4
                         else (-1,-1)
+          -- remove (xa,ya) for the first time it 
+          -- appears and put it at the end of the list!
+          newOldNext = nub ((pathOld\\[(xa,ya)])++[(xa,ya)])
+
                             
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
@@ -227,9 +229,10 @@ carStep _ _ _ _ = error "Must be a car cell in carStep!"
 -- Check the length of the next cell list.
 nextField :: [[Cell]]  -> Cell -> Pos -> [Pos] -> Pos
 nextField staticC (Road _ _ next) destination oldWay = 
-    if (length next) == 1
+{-    if (length next) == 1
         then head next
-        else if (length possibleWays) /=1
+        else-} 
+        if (length possibleWays) /=1
                 then findWay staticC destination possibleWays next
                 else head possibleWays
     
@@ -281,7 +284,9 @@ findWayInCorrectDirection staticC destination choices nextCell =
           [((wx1,wy1),(x1,y1)),((wx2,wy2),(x2,y2))] = 
             if (length choices) == 2
                then choices
-               else nextCell
+               else if (length nextCell) == 2
+                       then nextCell
+                       else [head nextCell]++[((9999,9999),(-1,-1))]
           nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
           weight1 = buildWeight (xd,yd) nextCellNext1
           nextCellNext1 = (\(Road _ _ next) -> next) 
