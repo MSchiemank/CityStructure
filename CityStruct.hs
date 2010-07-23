@@ -1,16 +1,17 @@
 module Main where 
-import Control.Concurrent 
-import Data.IORef
+import Control.Concurrent (forkIO, threadDelay)
+import Data.IORef 
 import Data.List (nub, (\\))
 import Graphics.Rendering.Cairo
 import Graphics.UI.Gtk
-import qualified Graphics.UI.Gtk.Gdk.Events as Events
+import qualified Graphics.UI.Gtk.Gdk.Events as Events 
+    (eventSent, Event)
 import Graphics.UI.Gtk.Glade
 import Parse
 import Run
-import System.Random 
+import System.Random (newStdGen)
 
------------------------------ global variable -----------------------------------
+----------------------------- global variable -----------------------
 emptyCity :: City
 emptyCity = City 0 0 [] []
 
@@ -34,7 +35,8 @@ main = do
           xmlM <- xmlNew "gui.glade"
           let xml = case xmlM of
                  (Just caseXml) -> caseXml
-                 Nothing        -> error $ "can't find the glade file \"gui.glade\""
+                 Nothing        -> error $ "can't find the glade file"
+                                           ++" \"gui.glade\""
                                            ++ "in the current directory"
           mainWindow   <- xmlGetWidget xml castToWindow "window1"
           open <- xmlGetWidget xml castToToolButton "open"
@@ -71,9 +73,12 @@ main = do
 
 
 ------------------------------------
--- setting the sensitivity of the whole buttons and the activity of the grid button
-          mapM_ (flip widgetSetSensitivity False) [reset,stop,start,step,saveButton]
-          mapM_ (flip widgetSetSensitivity True) [open,randomButton]
+-- setting the sensitivity of the whole buttons and the activity
+-- of the grid button
+          mapM_ (flip widgetSetSensitivity False)
+            [reset,stop,start,step,saveButton]
+          mapM_ (flip widgetSetSensitivity True) 
+            [open,randomButton]
           toggleButtonSetActive grid True 
 
 
@@ -90,7 +95,7 @@ main = do
 
 -- The openFileDialog:
 -- If one file is selected, this file will be read, the city will be created
--- as an IORef City var, the drawingarea will be resized, the buttons will be 
+-- as an IORef City var, the drawingarea will be resized, the buttons will be
 -- activated and the drawingarea will be painted.
           _ <- onToolButtonClicked open $do 
                     openFileDialog mainWindow fileOpenPathIO
@@ -106,12 +111,14 @@ main = do
                                 modifyIORef cityIO 
                                     (\_ -> parse genIO $doInputString file)
                                 -- a new title for the mainWindow
-                                windowSetTitle mainWindow $"City Structure - "++filePath
+                                windowSetTitle mainWindow 
+                                    $"City Structure - "++filePath
                                 -- widget will be resized 
                                 (w, h) <- dynSize cityIO
                                 widgetSetSizeRequest drawarea w h
                                 -- buttons will be activated
-                                mapM_ (flip widgetSetSensitivity True) [start,step,saveButton]
+                                mapM_ (flip widgetSetSensitivity True) 
+                                    [start,step,saveButton]
                                 -- city will be painted
                                 update grid drawarea cityIO)
 
@@ -180,7 +187,8 @@ main = do
           _ <- onToolButtonClicked stop $ do
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity False) [stop]
-                mapM_ (flip widgetSetSensitivity True) [open,saveButton,randomButton,reset,start,step]
+                mapM_ (flip widgetSetSensitivity True)
+                    [open,saveButton,randomButton,reset,start,step]
 
 
 -- step by step the drawingarea will be changed          
@@ -191,8 +199,9 @@ main = do
                 update grid drawarea cityIO
 
 -- the modifying of the speedIO var           
-          _ <- onValueSpinned speedButton $do s2 <- spinButtonGetValueAsInt speedButton 
-                                              modifyIORef speedIO (return s2)
+          _ <- onValueSpinned speedButton $do
+                s2 <- spinButtonGetValueAsInt speedButton 
+                modifyIORef speedIO (return s2)
                         
 -- turns the gridd on and off
           _ <- onToggled grid $ update grid drawarea cityIO
@@ -212,24 +221,34 @@ main = do
 
 
 
------------------------------------------------------------------------------------------
+---------------------------------------------------------------------
 
 -- the new thread for the automatic
-thread :: IORef City -> IORef Int -> IORef Bool -> DrawingArea -> CheckButton -> IO ()
+thread :: IORef City  ->
+          IORef Int   -> 
+          IORef Bool  -> 
+          DrawingArea -> 
+          CheckButton -> 
+          IO ()
 thread cityIO speedIO autoIO drawarea grid = do
-    speed <- readIORef speedIO          --lift the IORef speedIO to int
-    threadDelay (div (1000000) speed)      --need more time to look?
-    auto <- readIORef autoIO            --like above
+    --lift the IORef speedIO to int
+    speed <- readIORef speedIO   
+    --need more time to look?
+    threadDelay (div (1000000) speed)
+    --like above
+    auto <- readIORef autoIO            
 --    putStrLn "tick "
-    if auto                            --automatic or not?
-        then (do modifyIORef cityIO nextStep      --the next step in the game
-                 widgetQueueDraw drawarea  )      -- new drawing of the drawarea
+
+    --automatic or not?
+    if auto
+        then (do modifyIORef cityIO nextStep --the next step in the game
+                 widgetQueueDraw drawarea)   -- new drawing of the drawarea
         else return ()
 
 
     thread cityIO speedIO autoIO drawarea grid --Endless loop
 
------------------------------------------------------------------------------------------
+---------------------------------------------------------------------
 
 -- used when reset or step button are pushed. 
 update :: CheckButton -> DrawingArea -> IORef City -> IO ()
@@ -272,27 +291,32 @@ exposeDraw draw grid cityIO event = do
             return (Events.eventSent event)
  
 
------------------------------------------------------------------------------------------
+---------------------------------------------------------------------
 --only the painting of the city.
 cityDraw :: Bool -> City -> Int -> Int -> Int -> Render ()
-cityDraw grid city space w h = do 
-    setSourceRGB 1 1 1                                  --background
-    paint                                               --is painted
+cityDraw grid city space w h = do
+    --background sets colour to white
+    setSourceRGB 1 1 1 
+    --paints the background
+    paint                                               
 
-    if grid                                             --read the grid var. Turn grid on/off
+    --read the grid var. Turn grid on/off (True/False)
+    if grid                                             
        then drawGrid space w h
        else return()
 
-    mapM_ (drawStaticCell stat space) arayPos         --draw the static of the city
---    stroke
-    mapM_ (drawDynamicCell stat space) dyn            --draw the dynamic of the city
---    stroke
+    --draw the statics of the city
+    mapM_ (drawStaticCell stat space) arayPos         
+    --draw the dynamics of the city
+    mapM_ (drawDynamicCell stat space) dyn            
+
     where 
           stat = getCityStatic city
           dyn = getCityDynamic city
           arayWidth = getCityWidth city
           arayHeight = getCityHeight city
-          arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]] --builds a little helping array
+          --builds a little helping array
+          arayPos = [(x,y) | x <- [1..arayWidth], y <- [1..arayHeight]] 
 
 
 
@@ -301,8 +325,8 @@ drawDynamicCell :: [[Cell]] -> Int -> (Pos,Cell) -> Render ()
 drawDynamicCell staticC space (pos,cell) = case cell of
     {(Parse.Signal _  stat _ _ _ _) -> (do
                              if stat
-                                then setSourceRGB 0 1 0       -- for green colour
-                                else setSourceRGB 1 0 0       -- for red colour
+                                then setSourceRGB 0 1 0   -- for green colour
+                                else setSourceRGB 1 0 0   -- for red colour
                              drawArcFilled pos space 0.3);
      (Car _ (x,y) oldPath (r, g, b))-> (do 
             setSourceRGB r g b       -- draw the cars with their colours
@@ -325,9 +349,10 @@ drawArcFilled (x,y) space radius = do
     let s = fromIntegral space
         xd = fromIntegral x
         yd = fromIntegral y
---    setLineWidth (s*0.3)
+
+    --0.5 for the middle point of the field and s is for the space of one cell
     if radius == 0.2
-        then arc ((xd-0.5)*s) ((yd-0.3)*s) (radius*s) 0 (2*pi) --0.5 for the middle of the field and s is for the space of one piece
+        then arc ((xd-0.5)*s) ((yd-0.3)*s) (radius*s) 0 (2*pi) 
         else arc ((xd-0.5)*s) ((yd-0.5)*s) (radius*s) 0 (2*pi)
     fill
     stroke
@@ -353,8 +378,8 @@ drawTriangleFilled (x,y) oldPos space staticC = do
                        else if oldY > y 
                                then drawTriangleUp (xd,yd) s
                                else drawTriangleLeft (xd,yd) s
-                                           
-    where oldPosWithoutActualPos = oldPos\\[(x,y)]
+    
+    where oldPosWithoutActualPos = (nub oldPos)\\[(x,y)]
           oldX = fst $ head $ reverse $(nub oldPos)\\[(x,y)]
           oldY = snd $ head $ reverse $(nub oldPos)\\[(x,y)]
           nextX = fst $ head $ (\(Road _ _ nextR) -> nextR) staticC
@@ -402,17 +427,21 @@ drawTriangleRight (x,y) s = do
     stroke
 
 
-{- it draws all cell connections for the roads and the buildings
-   for each static cell will be a connection to every cell, which are in the nextRoad list-}
+-- it draws all cell connections for the roads and the buildings
+-- for each static cell will be a connection to every cell, which are in the 
+-- nextRoad list
 drawStaticCell :: [[Cell]] -> Int -> Pos -> Render ()
 drawStaticCell cellList space pos = do
     setSourceRGB 0 0 0
     case cell of
-          { (Road _ _ nRoad)            -> mapM_ (drawStreetPart space pos) nRoad;
+          { (Road _ _ nRoad)            -> mapM_ (drawStreetPart space pos)
+                                                 nRoad;
             (Building _ _)              -> drawBuilding space pos;
             Empty                       -> return ();
-            (Car _ _ _ _)               -> error "No cars allowed in static City list!";
-            (Parse.Signal _ _ _ _ _ _)  -> error "No signals allowed in static City list!"}
+            (Car _ _ _ _)               -> error $"No cars allowed in"
+                                                  ++" static City list!";
+            (Parse.Signal _ _ _ _ _ _)  -> error $"No signals allowed in"
+                                                  ++" static City list!"}
     where cell = getCell cellList pos
 
 
@@ -438,7 +467,8 @@ drawBuilding space (x,y) = do
     stroke
 
 
--- This draws a little connection from source to destination street part of a single street field
+-- This draws a little connection from source to destination street part of a
+-- single street field
 drawStreetPart :: Int -> Pos -> Pos -> Render ()
 drawStreetPart space (x1,y1) (x2,y2) = do
     let s = fromIntegral space
@@ -468,14 +498,14 @@ drawGrid space w h = do
                   lineTo (fromIntegral w) (fromIntegral y)
                   stroke)  [y1*space | y1 <- [0..(div h space)]]
 
--------------------------------- < openFileDialog > ----------------------------------
+-------------------------------- < openFileDialog > ---------------------------
 openFileDialog :: Window -> IORef String -> IO ()
 openFileDialog parentWindow fileOpenPathIO = do
     dialog <- fileChooserDialogNew 
-                    (Just "Select a City")              -- title of the window
-                    (Just parentWindow)                 -- the parent window
-                    FileChooserActionOpen               -- the kind of dialog we want
-                    [("gtk-cancel"                      -- the buttons to display
+                    (Just "Select a City")    -- title of the window
+                    (Just parentWindow)       -- the parent window
+                    FileChooserActionOpen     -- the kind of dialog we want
+                    [("gtk-cancel"            -- the buttons to display
 	                 , ResponseCancel)
 	                 ,("gtk-open"                                  
 	                 , ResponseAccept)]
@@ -485,8 +515,9 @@ openFileDialog parentWindow fileOpenPathIO = do
         ResponseAccept      -> do filePath <- fileChooserGetFilename dialog
                                   let path = case filePath of
                                         (Just s   ) -> s
-                                        Nothing     -> error "Error on ResponseAccept in "++
-                                                       "openFileDialog"
+                                        Nothing     -> error $"Error on "
+                                                       ++"ResponseAccept in "
+                                                       ++"openFileDialog"
                                   modifyIORef fileOpenPathIO (\_ -> path)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
@@ -494,14 +525,14 @@ openFileDialog parentWindow fileOpenPathIO = do
     widgetHide dialog
     
 
--------------------------------- < saveFileDialog > ----------------------------------
+-------------------------------- < saveFileDialog > ---------------------------
 saveFileDialog :: Window -> IORef String -> IO ()
 saveFileDialog parentWindow fileSavePathIO = do
     dialog <- fileChooserDialogNew 
-                    (Just "City will be saved as:")              -- title of the window
-                    (Just parentWindow)                 -- the parent window
-                    FileChooserActionSave               -- the kind of dialog we want
-                    [("gtk-cancel"                      -- the buttons to display
+                    (Just "City will be saved as:")-- title of the window
+                    (Just parentWindow)            -- parent window
+                    FileChooserActionSave          -- kind of dialog we want
+                    [("gtk-cancel"                 -- buttons to display
 	                 , ResponseCancel)
 	                 ,("gtk-save"                                  
 	                 , ResponseAccept)]
@@ -511,8 +542,9 @@ saveFileDialog parentWindow fileSavePathIO = do
         ResponseAccept      -> do filePath <- fileChooserGetFilename dialog
                                   let path = case filePath of
                                         (Just s   ) -> s
-                                        Nothing     -> error "Error on ResponseAccept in "++
-                                                       "openFileDialog"
+                                        Nothing     -> error $"Error on "
+                                                       ++"ResponseAccept in "
+                                                       ++"openFileDialog"
                                   modifyIORef fileSavePathIO (\_ -> path)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
@@ -520,7 +552,7 @@ saveFileDialog parentWindow fileSavePathIO = do
     widgetHide dialog
     
 
-------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 -- Returns the lowest size of the drawingarea
 
 dynSize :: IORef City -> IO (Int, Int)
@@ -711,81 +743,4 @@ showRandDialog xml randValIO = do
 
     widgetHide randDialog
 
-          
-          
 
-------------------------------------------------------------------------------------------
--- The next segment is the writing on the console and is not more used by the prog.
--- Only for debugging necessary or for the god old times! :D
-------------------------------------------------------------------------------------------
-{-Builds an outputstring on the console. Each row of the lists will be printed as a
-  single row. The preferred Cell is in the dynamic list of the city. If there is an empty
-  field, the static list will be used. If there is a signal or a car, then this it will
-  be printed. 
-  -}
-
-{-test genIO file= --do file <- readFile "city"--"signalTest"--
-          parse genIO (doInputString file)
---          let i = 15--000
---          gen <- newStdGen
---          genIO <- newIORef gen
---          return ()
---          run (parse genIO (doInputString file)) i
-
-
-run :: City -> Int -> IO()
-run _ 4 = return ()
-run city i = do 
---                printCity city
---                threadDelay 1000000--300000 getLine --
-                return ()
-                --run (nextStep city) (length (getCityDynamic city))--(i-1)--(length (getCityDynamic city))
-
-
-
-printCity :: City -> IO()
-printCity city = putStr (printStart city (getCityWidth city) (getCityHeight city) 1 1)
-
-
-printStart :: City -> Int -> Int -> Int -> Int -> String
-printStart city width height x y | x > width = ['\n']++printStart city width height 1 (y+1)
-                                 | y > height = ['\n']
-                                 | otherwise = [printCell city (x,y)]
-                                               ++printStart city width height (x+1) y
-
-printCell :: City -> Pos -> Char
-printCell city pos = if not(null dyn)
-                        then cellToChar (getCellFromTuple (head dyn)) pos
-                        else cellToChar stat pos
-                       where dyn = filter (\(y,_) -> y==pos) (getCityDynamic city)
-                             stat = getCell (getCityStatic city) pos
-    
-getCellFromTuple :: (Pos,Cell) -> Cell
-getCellFromTuple (pos,cell) = cell
-
-
-
-cellToChar :: Cell -> Pos -> Char
-cellToChar cell pos = 
-        case cell of
-          { (Road ident name nextRoad)      -> if length nextRoad <=1
-                                                  then  roadSign (head nextRoad) pos
-                                                  else '\x271B';
-            (Building ident name)           -> ' ';
-            (Parse.Signal ident status stepToWait remainingSteps workWith against) -> signalSign status;
-            (Car ident dest iWasThere _)      -> 'A';
-            Empty                           -> ' '
-          }
-
-
-roadSign :: Pos -> Pos -> Char
-roadSign (x1,y1) (x,y) | x1 < x = '\x2190'
-                       | x1 > x = '\x2192'
-                       | y1 < y = '\x2191'
-                       | y1 > y = '\x2193'
-                       
-
-signalSign :: Bool -> Char
-signalSign b = if b
-                  then 'G'
-                  else 'R'-}

@@ -1,9 +1,10 @@
 module Run where
 import Parse
-import Data.List
+import Data.List (nub, (\\))
 
-{- The nextStep is first to generate a new dynamic list, with the moving cars on the next
-   point in the City and the switching signals.Out of this a new city will be generated.-}
+-- The nextStep is first to generate a new dynamic list, with the moving cars
+-- on the next point in the City and the switching signals.Out of this
+-- a new city will be generated.
 nextStep :: City -> City
 nextStep city = 
     City {width  = getCityWidth  city,
@@ -25,11 +26,15 @@ nextStep city =
           destCars = filter (\(pos,_) -> pos == (-1,-1)) allNextCars
           withDoubleCars = allNextCars\\destCars
           --returns a list like that: [[pos1,pos2],[pos3],[pos4]...]
-          searchDoubleForEachCell = map (\(pos1,_) -> carDoubleSearch pos1) withDoubleCars 
+          searchDoubleForEachCell =
+            map (\(pos1,_) -> carDoubleSearch pos1) withDoubleCars 
+
           carDoubleSearch :: Pos -> [(Pos,Cell)]
-          carDoubleSearch pos1 = filter (\(pos,_) -> pos == pos1) withDoubleCars
+          carDoubleSearch pos1 = 
+            filter (\(pos,_) -> pos == pos1) withDoubleCars
           --extract the double cars on one Cell
-          extractDouble = nub $ filter (\x -> length x >1) searchDoubleForEachCell
+          extractDouble = 
+            nub $ filter (\x -> length x >1) searchDoubleForEachCell
           --this will correct the two cars on one cell phenomenon
           allCarsWithoutTwoOnOneCell =
              concat noTwoCarsOnPlace ++ 
@@ -40,14 +45,15 @@ nextStep city =
 
 
                       
--- returns the old position of the first car on the cell, the other car moves on
--- will be used, if two cars are on one cell.
+-- returns the old position of the first car on the cell, the other car
+-- moves on will be used, if two cars are on one cell.
 rightBeforeLeft :: [(Pos,Cell)] -> [(Pos,Cell)]
 rightBeforeLeft cars = 
     if (length cars)==2 
         then whoIsTheRightOfTheCar firstCar secondCar :
              whoIsTheRightOfTheCar secondCar firstCar : []
-        else error "More ore less than two cars on one roadcell in rightBeforeLeft!"
+        else error $"More ore less than two cars on one roadcell"
+                    ++" in rightBeforeLeft!"
     where
           firstCar = cars!!0
           secondCar = cars!!1
@@ -102,18 +108,20 @@ remLastPos _ = error "Must be a car cell in remLastPos!"
 
 
 
-{- The cars look for the next field in the street cell. If there will be 2 next 
-   fields, then it will look, which field is the nearest to the target. There for 
-   are the wights. If the wight is equal, then the next but one fields will be
-   looked for. And this fields have also a next field, then the wights for this will
-   be created and the lower wight will elected the real next step.
-   After the car has reached the destination, it will be removed from the city.-}
+-- The cars look for the next field in the street cell. If there will
+-- be 2 next fields, then it will look, which field is the nearest
+-- to the target. There for are the wights. If the wight is equal, then
+-- the next but one fields will be looked for. And this fields have also
+-- a next field, then the wights for this will be created and the lower wight
+-- will elected the real next step. After the car has reached the destination,
+-- it will be removed from the city.
 nextCarsAndSignals :: [[Cell]] -> [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
 nextCarsAndSignals staticC dynamicC (pos, cell) =
     case cell of 
          { (Signal _ _ _ _ _ _) -> signalStatus (pos, cell);
            (Car _ _ _ _)        -> checkSignal staticC dynamicC pos cell;
-           (_)                  -> error "Must be a signal or car cell in nextCarsAndSignals!"
+           (_)                  -> error $"Must be a signal or car cell in"
+                                          ++" nextCarsAndSignals!"
          }
 
 
@@ -144,7 +152,8 @@ checkSignal ::  [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell ->  (Pos, Cell)
 checkSignal stat dyn (x,y) cell = 
     if length nextButOnePos > 1 || length nextButTwoPos > 1
        then if length nearestSignal > 0
-               then if and $ map (\(_,(Signal _ statusS _ _ _ _)) -> statusS) nearestSignal
+               then if and $ map (\(_,(Signal _ statusS _ _ _ _)) -> statusS) 
+                                 nearestSignal
                        then carStep stat dyn (x,y) cell
                        else ((x,y),cell)
                else carStep stat dyn (x,y) cell
@@ -158,8 +167,10 @@ checkSignal stat dyn (x,y) cell =
           allSignals = filter (\(_,cell1) -> case cell1 of 
                                  {(Signal _ _ _ _ _ _) -> True;
                                   _                    -> False}) dyn
-          nearestSignal = filter (\((x1,y1),_) -> x1==x && (y1==y-1 || y1==y+1) ||
-                                                  y1==y && (x1==x-1 || x1==x+1)) allSignals
+          nearestSignal = filter (\((x1,y1),_) ->
+                                 x1==x && (y1==y-1 || y1==y+1) ||
+                                 y1==y && (x1==x-1 || x1==x+1)
+                                 ) allSignals
 
 
 getCell :: [[Cell]] -> (Pos) -> Cell
@@ -173,20 +184,31 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
     if (xa,ya) == (xd,yd) || 
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
-       then ((-1,-1), Car {ident=0, dest=(xd,yd), iWasThere=[], colour=col}) --car is on his destination
+       then
+         --car is on his destination
+         ((-1,-1), Car {ident=0, dest=(xd,yd), iWasThere=[], colour=col})
        else if length carOnNext > 0    --if a car is on the next field
         --checks, if a deadlock occures for 5 times
                then if oldCell == (xa,ya) && length carOnOtherNext <= 0
-                -- shows, if it has waited 5 times and if the otherNext field is 
-                -- not occupied and goes on.
-                       then (otherNext, Car idC (xd,yd) (pathOld++[(xa,ya)]) col)
+                -- shows, if it has waited 5 times and if the otherNext
+                -- field is not occupied and goes on.
+                       then (otherNext, Car idC 
+                                            (xd,yd) 
+                                            (pathOld++[(xa,ya)])
+                                            col)
                 --else it will remain on the current place
-                       else ((xa,ya), Car idC (xd,yd) (pathOld++[(xa,ya)]) col)
-               else (next, Car idC (xd,yd) (nub ((pathOld\\[(xa,ya)])++[(xa,ya)])) col)      --otherwise it will move on
-                    --if next == (-1,-1)
-                    --   then ((xa,ya), Car idC (xd,yd) [] col)           --car has lost it's way
-                    --   else (next, Car idC (xd,yd) (nub (pathOld++[(xa,ya)])) col)      --otherwise it will move on
-    
+                       else ((xa,ya), Car idC
+                                          (xd,yd)
+                                          (pathOld++[(xa,ya)])
+                                          col)
+               else --otherwise it will move on
+                    (next, Car idC 
+                               (xd,yd) 
+                               -- remove (xa,ya) for the first time it 
+                               -- appears and put it at the end of the list!
+                               (nub ((pathOld\\[(xa,ya)])++[(xa,ya)]))
+                               col)
+
     where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) pathOld
           nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
           otherNext = if length nextRoadFromCell >1
@@ -231,16 +253,15 @@ buildWeight (xd,yd) list =
         ) list
 
 
-{- This one decides which next cell will be used. If the weight from one
-   of the way is more less than the other, that will be the next weight.
-    If it's equal, then the wight form each next but one cell decides what
-    way will be taken.-}
+-- This one decides which next cell will be used. If the weight from one
+-- of the way is more less than the other, that will be the next weight.
+-- If it's equal, then the wight form each next but one cell decides what
+-- way will be taken.
 findWayInCorrectDirection :: [[Cell]]     -> 
                              Pos          -> 
                              [(Pos, Pos)] -> 
                              [(Pos, Pos)] -> 
                              Pos
--- findWayInCorrectDirection _ _ [] = (-1,-1)
 findWayInCorrectDirection staticC destination choices nextCell = 
     if (wx1+wy1) == (wx2+wy2)
        then if nextWeight1==nextWeight2
@@ -269,8 +290,7 @@ findWayInCorrectDirection staticC destination choices nextCell =
           weight2 = buildWeight (xd,yd) nextCellNext2
           nextCellNext2 = (\(Road _ _ next) -> next) 
                           $getCell staticC (x2,y2)
---findWayInCorrectDirection _ _ _ = 
---    error "To few ways in findWayInCorrectDirection!"
+
 
 
 -- the house at the finishing point to show it with a circle
