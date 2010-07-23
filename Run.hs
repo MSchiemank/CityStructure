@@ -5,11 +5,12 @@ import Data.List
 {- The nextStep is first to generate a new dynamic list, with the moving cars on the next
    point in the City and the switching signals.Out of this a new city will be generated.-}
 nextStep :: City -> City
-nextStep city =
+nextStep city = 
     City {width  = getCityWidth  city,
           height = getCityHeight city,
           static = getCityStatic city,
           dynamic = allCarsWithoutTwoOnOneCell}
+    
     where 
           dyn = getCityDynamic city
           stat = getCityStatic city
@@ -65,6 +66,7 @@ whoIsTheRightOfTheCar car1 car2 =
                 then showRight (xCar1, yCar1+1) car1 car2
     -- fourth time is, that a car comes from the right side
                 else showRight (xCar1, yCar1-1) car1 car2
+    
     where 
           oldPosFirstCar = (\(Car _ _ old _) -> head $reverse old) $snd car1
           posCar1 = fst car1
@@ -82,6 +84,7 @@ showRight rightPos car1 car2 =
     if rightPos==oldPosCar2
        then (returnOldPos car1, remLastPos car1)
        else car1
+    
     where 
           oldPosCar2 = (\(Car _ _ old _) -> head $reverse old) $snd car2
 
@@ -138,7 +141,7 @@ signalStatus (_,_) = error "Must be a signal cell in signalStatus!"
 -- If signal shows red, then the car will remain on the position, otherwise
 -- it will move forward.
 checkSignal ::  [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell ->  (Pos, Cell)
-checkSignal stat dyn (x,y) cell =
+checkSignal stat dyn (x,y) cell = 
     if length nextButOnePos > 1 || length nextButTwoPos > 1
        then if length nearestSignal > 0
                then if and $ map (\(_,(Signal _ statusS _ _ _ _)) -> statusS) nearestSignal
@@ -146,6 +149,7 @@ checkSignal stat dyn (x,y) cell =
                        else ((x,y),cell)
                else carStep stat dyn (x,y) cell
        else carStep stat dyn (x,y) cell
+    
     where 
           nextPos = head((\(Road _ _ next) -> next) (getCell stat (x,y)))
           nextButOnePos = (\(Road _ _ next) -> next) (getCell stat nextPos)
@@ -206,6 +210,7 @@ nextField staticC (Road _ _ next) destination oldWay =
         else if (length possibleWays) /=1
                 then findWay staticC destination possibleWays next
                 else head possibleWays
+    
     where possibleWays = next\\oldWay                    
 nextField _ _ _ _ = error "Must be a road cell in nextField!"
 
@@ -276,6 +281,7 @@ filterHouseAt staticC (x,y) =
     if null houses 
        then (x,y)
        else (\(position,_) -> position) $head houses
+    
     where 
           lX = length $ staticC!!0
           lY = length staticC

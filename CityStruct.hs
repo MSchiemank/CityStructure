@@ -338,7 +338,7 @@ drawTriangleFilled (x,y) oldPos space staticC = do
         xd = fromIntegral x
         yd = fromIntegral y
     setLineWidth (s*0.3)
-    if null oldPos
+    if null oldPosWithoutActualPos
        then if nextY < y
                then drawTriangleUp (xd,yd) s
                else if nextX<x 
@@ -354,7 +354,8 @@ drawTriangleFilled (x,y) oldPos space staticC = do
                                then drawTriangleUp (xd,yd) s
                                else drawTriangleLeft (xd,yd) s
                                            
-    where oldX = fst $ head $ reverse $(nub oldPos)\\[(x,y)]
+    where oldPosWithoutActualPos = oldPos\\[(x,y)]
+          oldX = fst $ head $ reverse $(nub oldPos)\\[(x,y)]
           oldY = snd $ head $ reverse $(nub oldPos)\\[(x,y)]
           nextX = fst $ head $ (\(Road _ _ nextR) -> nextR) staticC
           nextY = snd $ head $ (\(Road _ _ nextR) -> nextR) staticC
