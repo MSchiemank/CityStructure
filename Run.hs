@@ -265,7 +265,8 @@ findWayInCorrectDirection :: [[Cell]]     ->
 findWayInCorrectDirection staticC destination choices nextCell = 
     if (wx1+wy1) == (wx2+wy2)
        then if nextWeight1==nextWeight2
-               then if (maximum [wx1,wy1] < maximum [wx2,wy2])
+               then if (maximum [wx1,wy1] < maximum [wx2,wy2]) && 
+                        length choices > 0                         
                         then (x1,y1)
                         else (x2,y2)
                else if nextWeight1<nextWeight2
@@ -273,7 +274,7 @@ findWayInCorrectDirection staticC destination choices nextCell =
                        else (x2,y2)
        else (\(_,pos) -> pos) $minimum $map 
                 (\((wx,wy),pos) -> ((wx+wy),pos)) ways
-                    
+    
     where (xd,yd) = destination
           ways = if (length choices) == 2
                     then choices
