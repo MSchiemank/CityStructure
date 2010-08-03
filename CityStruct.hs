@@ -8,7 +8,7 @@ import qualified Graphics.UI.Gtk.Gdk.Events as Events
     (eventSent, Event)
 import Graphics.UI.Gtk.Glade
 import Parse
-import Run2
+import Run
 import System.Random (newStdGen)
 
 ----------------------------- global variable -----------------------

@@ -1,0 +1,93 @@
+*** glibc detected *** ./CityStruct: double free or corruption (out): 0xb3600490 ***
+======= Backtrace: =========
+/lib/tls/i686/cmov/libc.so.6(+0x6b591)[0x6577591]
+/lib/tls/i686/cmov/libc.so.6(+0x6cde8)[0x6578de8]
+/lib/tls/i686/cmov/libc.so.6(cfree+0x6d)[0x657becd]
+/lib/libglib-2.0.so.0(g_free+0x36)[0x604fc6]
+/usr/lib/libgdk-x11-2.0.so.0(+0x2b031)[0x1b3031]
+/usr/lib/libgdk-x11-2.0.so.0(gdk_region_union+0x8e)[0x1b473e]
+/usr/lib/libgdk-x11-2.0.so.0(+0x3996c)[0x1c196c]
+/usr/lib/libgdk-x11-2.0.so.0(+0x3a2cc)[0x1c22cc]
+/usr/lib/libgdk-x11-2.0.so.0(+0x3a257)[0x1c2257]
+/usr/lib/libgdk-x11-2.0.so.0(+0x3a3de)[0x1c23de]
+/usr/lib/libgdk-x11-2.0.so.0(+0x3aa6b)[0x1c2a6b]
+/usr/lib/libgtk-x11-2.0.so.0(gtk_widget_queue_draw_area+0x17a)[0xeecc5a]
+/usr/lib/libgtk-x11-2.0.so.0(gtk_widget_queue_draw+0x96)[0xeecdd6]
+/usr/lib/libgtk-x11-2.0.so.0(+0xb7498)[0xd33498]
+/usr/lib/libgdk-x11-2.0.so.0(+0x16358)[0x19e358]
+/lib/libglib-2.0.so.0(+0x3bd5c)[0x5fcd5c]
+/lib/libglib-2.0.so.0(g_main_context_dispatch+0x1d5)[0x5fc5e5]
+/lib/libglib-2.0.so.0(+0x3f2d8)[0x6002d8]
+/lib/libglib-2.0.so.0(g_main_loop_run+0x187)[0x600817]
+/usr/lib/libgtk-x11-2.0.so.0(gtk_main+0xb9)[0xdb33c9]
+./CityStruct[0x808fe2b]
+======= Memory map: ========
+00110000-00129000 r-xp 00000000 08:01 2647       /usr/lib/libatk-1.0.so.0.3009.1
+00129000-0012a000 ---p 00019000 08:01 2647       /usr/lib/libatk-1.0.so.0.3009.1
+0012a000-0012b000 r-xp 00019000 08:01 2647       /usr/lib/libatk-1.0.so.0.3009.1
+0012b000-0012c000 rwxp 0001a000 08:01 2647       /usr/lib/libatk-1.0.so.0.3009.1
+0012c000-00151000 r-xp 00000000 08:01 4836       /usr/lib/libpangoft2-1.0.so.0.2800.0
+00151000-00152000 r-xp 00024000 08:01 4836       /usr/lib/libpangoft2-1.0.so.0.2800.0
+00152000-00153000 rwxp 00025000 08:01 4836       /usr/lib/libpangoft2-1.0.so.0.2800.0
+00153000-0016b000 r-xp 00000000 08:01 1093       /usr/lib/libgdk_pixbuf-2.0.so.0.2000.1
+0016b000-0016c000 r-xp 00017000 08:01 1093       /usr/lib/libgdk_pixbuf-2.0.so.0.2000.1
+0016c000-0016d000 rwxp 00018000 08:01 1093       /usr/lib/libgdk_pixbuf-2.0.so.0.2000.1
+0016d000-0016e000 rwxp 00000000 00:00 0 
+0016e000-00171000 r-xp 00000000 08:01 1153       /usr/lib/libgmodule-2.0.so.0.2400.1
+00171000-00172000 r-xp 00002000 08:01 1153       /usr/lib/libgmodule-2.0.so.0.2400.1
+00172000-00173000 rwxp 00003000 08:01 1153       /usr/lib/libgmodule-2.0.so.0.2400.1
+00173000-00176000 rwxp 00000000 00:00 0 
+00176000-0017d000 r-xs 00000000 08:01 149777     /usr/lib/gconv/gconv-modules.cache
+0017d000-0017e000 r-xp 00000000 08:01 552902     /usr/lib/locale/de_DE.utf8/LC_IDENTIFICATION
+0017e000-0017f000 r-xp 00000000 08:01 529089     /usr/lib/locale/de_DE.utf8/LC_MEASUREMENT
+0017f000-00180000 r-xp 00000000 08:01 552901     /usr/lib/locale/de_DE.utf8/LC_TELEPHONE
+00180000-00181000 r-xp 00000000 08:01 552900     /usr/lib/locale/de_DE.utf8/LC_ADDRESS
+00181000-00182000 r-xp 00000000 08:01 552899     /usr/lib/locale/de_DE.utf8/LC_NAME
+00182000-00183000 r-xp 00000000 08:01 529085     /usr/lib/locale/de_DE.utf8/LC_PAPER
+00183000-00184000 r-xp 00000000 08:01 529084     /usr/lib/locale/de_DE.utf8/LC_MESSAGES/SYS_LC_MESSAGES
+00184000-00185000 r-xp 00000000 08:01 552898     /usr/lib/locale/de_DE.utf8/LC_MONETARY
+00185000-00186000 r-xp 00000000 08:01 552896     /usr/lib/locale/de_DE.utf8/LC_TIME
+00186000-00187000 r-xp 00000000 08:01 529092     /usr/lib/locale/de_DE.utf8/LC_NUMERIC
+00187000-00188000 r-xs 00000000 08:01 148300     /var/cache/fontconfig/4794a0821666d79190d59a36cb4f44b5-le32d4.cache-3
+00188000-0021b000 r-xp 00000000 08:01 1092       /usr/lib/libgdk-x11-2.0.so.0.2000.1
+0021b000-0021d000 r-xp 00093000 08:01 1092       /usr/lib/libgdk-x11-2.0.so.0.2000.1
+0021d000-0021e000 rwxp 00095000 08:01 1092       /usr/lib/libgdk-x11-2.0.so.0.2000.1
+0021e000-002b8000 r-xp 00000000 08:01 3193       /usr/lib/libgio-2.0.so.0.2400.1
+002b8000-002b9000 ---p 0009a000 08:01 3193       /usr/lib/libgio-2.0.so.0.2400.1
+002b9000-002ba000 r-xp 0009a000 08:01 3193       /usr/lib/libgio-2.0.so.0.2400.1
+002ba000-002bb000 rwxp 0009b000 08:01 3193       /usr/lib/libgio-2.0.so.0.2400.1
+002bb000-002bc000 rwxp 00000000 00:00 0 
+002bc000-002e0000 r-xp 00000000 08:01 684        /lib/tls/i686/cmov/libm-2.11.1.so
+002e0000-002e1000 r-xp 00023000 08:01 684        /lib/tls/i686/cmov/libm-2.11.1.so
+002e1000-002e2000 rwxp 00024000 08:01 684        /lib/tls/i686/cmov/libm-2.11.1.so
+002e2000-00359000 r-xp 00000000 08:01 3966       /usr/lib/libcairo.so.2.10800.10
+00359000-0035b000 r-xp 00076000 08:01 3966       /usr/lib/libcairo.so.2.10800.10
+0035b000-0035c000 rwxp 00078000 08:01 3966       /usr/lib/libcairo.so.2.10800.10
+0035c000-003cd000 r-xp 00000000 08:01 2717       /usr/lib/libfreetype.so.6.3.22
+003cd000-003d1000 r-xp 00070000 08:01 2717       /usr/lib/libfreetype.so.6.3.22
+003d1000-003d2000 rwxp 00074000 08:01 2717       /usr/lib/libfreetype.so.6.3.22
+003d2000-00400000 r-xp 00000000 08:01 1395       /usr/lib/libfontconfig.so.1.4.4
+00400000-00401000 r-xp 0002d000 08:01 1395       /usr/lib/libfontconfig.so.1.4.4
+00401000-00402000 rwxp 0002e000 08:01 1395       /usr/lib/libfontconfig.so.1.4.4
+00402000-0043f000 r-xp 00000000 08:01 1131       /usr/lib/libgobject-2.0.so.0.2400.1
+0043f000-00440000 r-xp 0003c000 08:01 1131       /usr/lib/libgobject-2.0.so.0.2400.1
+00440000-00441000 rwxp 0003d000 08:01 1131       /usr/lib/libgobject-2.0.so.0.2400.1
+00441000-00443000 r-xp 00000000 08:01 738        /lib/tls/i686/cmov/libutil-2.11.1.so
+00443000-00444000 r-xp 00001000 08:01 738        /lib/tls/i686/cmov/libutil-2.11.1.so
+00444000-00445000 rwxp 00002000 08:01 738        /lib/tls/i686/cmov/libutil-2.11.1.so
+00445000-00447000 r-xp 00000000 08:01 674        /lib/tls/i686/cmov/libdl-2.11.1.so
+00447000-00448000 r-xp 00001000 08:01 674        /lib/tls/i686/cmov/libdl-2.11.1.so
+00448000-00449000 rwxp 00002000 08:01 674        /lib/tls/i686/cmov/libdl-2.11.1.so
+00449000-004a8000 r-xp 00000000 08:01 3301       /usr/lib/libgmp.so.3.5.2
+004a8000-004a9000 r-xp 0005e000 08:01 3301       /usr/lib/libgmp.so.3.5.2
+004a9000-004aa000 rwxp 0005f000 08:01 3301       /usr/lib/libgmp.so.3.5.2
+004aa000-004bf000 r-xp 00000000 08:01 713        /lib/tls/i686/cmov/libpthread-2.11.1.so
+004bf000-004c0000 r-xp 00014000 08:01 713        /lib/tls/i686/cmov/libpthread-2.11.1.so
+004c0000-004c1000 rwxp 00015000 08:01 713        /lib/tls/i686/cmov/libpthread-2.11.1.so
+004c1000-004c3000 rwxp 00000000 00:00 0 
+004c3000-004d1000 r-xp 00000000 08:01 12463      /usr/lib/libXext.so.6.4.0
+004d1000-004d2000 r-xp 0000d000 08:01 12463      /usr/lib/libXext.so.6.4.0
+004d2000-004d3000 rwxp 0000e000 08:01 12463      /usr/lib/libXext.so.6.4.0
+004d3000-004d5000 r-xp 00000000 08:01 3938       /usr/lib/libXinerama.so.1.0.0
+004d5000-004d6000 r-xp 00001000 08:01 3938       /usr/lib/libXinerama.so.1.0.0Aborted
+

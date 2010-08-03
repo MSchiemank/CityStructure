@@ -1,6 +1,8 @@
 module Run where
 import Parse
-import Data.List (nub, (\\))
+import Data.List (nub, (\\), minimumBy)
+import Data.Tree
+
 
 -- The nextStep is first to generate a new dynamic list, with the moving cars
 -- on the next point in the City and the switching signals.Out of this
@@ -150,7 +152,7 @@ signalStatus (_,_) = error "Must be a signal cell in signalStatus!"
 -- it will move forward.
 checkSignal ::  [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell ->  (Pos, Cell)
 checkSignal stat dyn (x,y) cell = 
-    if length nextButOnePos > 1 || length nextButTwoPos > 1
+    if length nextButOnePos > 1 
        then if length nearestSignal > 0
                then if and $ map (\(_,(Signal _ statusS _ _ _ _)) -> statusS) 
                                  nearestSignal
@@ -160,10 +162,8 @@ checkSignal stat dyn (x,y) cell =
        else carStep stat dyn (x,y) cell
     
     where 
-          nextPos = head((\(Road _ _ next) -> next) (getCell stat (x,y)))
-          nextButOnePos = (\(Road _ _ next) -> next) (getCell stat nextPos)
-          nextButTwoPos = map (\(Road _ _ next) -> next) nextButTwoRoads 
-          nextButTwoRoads = map (getCell stat) nextButOnePos
+          nextPos = head(nextRoad (getCell stat (x,y)))
+          nextButOnePos = nextRoad (getCell stat nextPos)
           allSignals = filter (\(_,cell1) -> case cell1 of 
                                  {(Signal _ _ _ _ _ _) -> True;
                                   _                    -> False}) dyn
@@ -207,7 +207,7 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
                                newOldNext
                                col)
     
-    where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) pathOld
+    where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) (xa,ya)
           nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
           otherNext = if length nextRoadFromCell >1
                          then head $nextRoadFromCell\\[next]
@@ -224,77 +224,89 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
                             
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
-           
 
--- Check the length of the next cell list.
-nextField :: [[Cell]]  -> Cell -> Pos -> [Pos] -> Pos
-nextField staticC (Road _ _ next) destination oldWay = 
-        if (length possibleWays) /=1
-                then findWay staticC destination possibleWays next
-                else head possibleWays
-    
-    where possibleWays = next\\oldWay                    
+
+---------------------------- < pathfinding > ----------------------------------
+-- with the a-star algorithm.
+nextField :: [[Cell]] -> Cell -> Pos -> Pos -> Pos
+nextField staticC (Road _ _ next) destination position = 
+    if (length next > 1)
+        then if length path > 1 
+                then head $tail $reverse path
+                else head path
+        else head next
+    where path = aStar [(0, (Node position []))] [] destination staticC
 nextField _ _ _ _ = error "Must be a road cell in nextField!"
 
 
+aStar :: [(Int, Tree Pos)] -> [Pos] -> Pos -> [[Cell]] -> [Pos]
+aStar [] _ _ _ = error "No path found for one car!"
+aStar openList closedList destination staticC = 
+    let (i, currentNode) = minimumBy orderTreeList openList
+        newOpenList = openList\\[(i,currentNode)]
+        newClosedList = closedList++[rootLabel currentNode]
+    in 
+    if destination == (rootLabel currentNode)
+       then buildPath currentNode
+       else aStar (expandNode (i, currentNode)
+                              newOpenList
+                              newClosedList
+                              staticC
+                              destination) 
+                  newClosedList
+                  destination
+                  staticC
 
-findWay :: [[Cell]] -> Pos -> [Pos] -> [Pos] -> Pos
-findWay staticC destination list nextList =
-        findWayInCorrectDirection staticC destination 
-            (buildWeight destination list)
-            (buildWeight destination nextList)
-                     
 
--- builds the wight of the next cell
-buildWeight :: Pos -> [Pos] -> [(Pos, Pos)]
-buildWeight (xd,yd) list =
-    map (\(x1,y1) -> (((if xd<x1 then x1-xd else xd-x1),
-                       (if yd<y1 then y1-yd else yd-y1)),(x1,y1))
-        ) list
-
-
--- This one decides which next cell will be used. If the weight from one
--- of the way is more less than the other, that will be the next weight.
--- If it's equal, then the wight form each next but one cell decides what
--- way will be taken.
-findWayInCorrectDirection :: [[Cell]]     -> 
-                             Pos          -> 
-                             [(Pos, Pos)] -> 
-                             [(Pos, Pos)] -> 
-                             Pos
-findWayInCorrectDirection staticC destination choices nextCell = 
-    if (wx1+wy1) == (wx2+wy2)
-       then if nextWeight1==nextWeight2
-               then if (maximum [wx1,wy1] < maximum [wx2,wy2]) && 
-                        length choices > 0                         
-                        then (x1,y1)
-                        else (x2,y2)
-               else if nextWeight1<nextWeight2
-                       then (x1,y1)
-                       else (x2,y2)
-       else (\(_,pos) -> pos) $minimum $map 
-                (\((wx,wy),pos) -> ((wx+wy),pos)) ways
+expandNode :: (Int, Tree Pos)   ->
+              [(Int, Tree Pos)] -> 
+              [Pos]             -> 
+              [[Cell]]          -> 
+              Pos               ->
+              [(Int, Tree Pos)]
+expandNode (g,node) openList closedList staticC destination = 
+    nub $concat $map (\pos -> do
+        let nodeInList = filter (\(_, Node posN _) -> posN==pos)
+                                openList
+            newOpenList = openList\\nodeInList
+            (fOld,_) = head nodeInList
+        if elem pos closedList
+            then openList
+            else if not (null $nodeInList)
+                    then if f pos > fOld
+                         then openList
+                         else newOpenList++[(f pos,Node pos [node])]
+                    else openList++[(f pos,Node pos [node])]
+        )
+        successors
     
-    where (xd,yd) = destination
-          ways = if (length choices) == 2
-                    then choices
-                    else nextCell
-          [((wx1,wy1),(x1,y1)),((wx2,wy2),(x2,y2))] = 
-            if (length choices) == 2
-               then choices
-               else if (length nextCell) == 2
-                       then nextCell
-                       else [head nextCell]++[((9999,9999),(-1,-1))]
-          nextWeight1 = minimum (map (\((x,y),_) -> x+y) weight1)
-          weight1 = buildWeight (xd,yd) nextCellNext1
-          nextCellNext1 = (\(Road _ _ next) -> next) 
-                          $getCell staticC (x1,y1)
-          nextWeight2 = minimum (map (\((x,y),_) -> x+y) weight2)
-          weight2 = buildWeight (xd,yd) nextCellNext2
-          nextCellNext2 = (\(Road _ _ next) -> next) 
-                          $getCell staticC (x2,y2)
+    where position = rootLabel node
+          successors = nextRoad $getCell staticC position
+          f :: Pos -> Int
+          f pos = g+1+heuristic pos destination
+
+    
+
+heuristic :: Pos -> Pos -> Int
+heuristic (xa,ya) (xd,yd) = 
+    (if xd<xa then xa-xd else xd-xa)+(if yd<ya then ya-yd else yd-ya)
+
+buildPath :: Tree Pos -> [Pos]
+buildPath (Node destination []) = [destination]
+buildPath node =
+    destination:(buildPath (head $ subForest node))
+    where destination = rootLabel node
 
 
+orderTreeList :: (Ord a) => (a, b) -> (a, b) -> Ordering
+orderTreeList (i1, _) (i2, _)
+    | i1 < i2 = LT
+    | i1 == i2 = EQ
+    | i1 > i2 = GT
+orderTreeList _ _ = error "Error in orderTreeList"
+
+
+-------------------------------------------------------------------------------
 
 -- the house at the finishing point to show it with a circle
 -- If no house is at that position, it will choose the destination 
