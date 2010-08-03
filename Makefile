@@ -1,6 +1,6 @@
 # Configuration
 COMPILER=ghc
-OPTIONS=--make -O2 -fforce-recomp -Wall -threaded
+OPTIONS=--make -O2 -fforce-recomp -Wall -threaded +RTS -N4 -RTS
 BINARIES=CityStruct
 
 
