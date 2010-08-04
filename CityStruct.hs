@@ -1,4 +1,5 @@
 module Main where 
+import AStar
 import Control.Concurrent (forkIO, threadDelay)
 import Data.IORef 
 import Data.List (nub, (\\))
@@ -304,12 +305,12 @@ cityDraw grid city space w h = do
 -- this draws the cars and the signals 
 drawDynamicCell :: [[Cell]] -> Int -> (Pos,Cell) -> Render ()
 drawDynamicCell staticC space (pos,cell) = case cell of
-    {(Parse.Signal _  stat _ _ _ _) -> (do
+    {(AStar.Signal _  stat _ _ _ _) -> (do
                              if stat
                                 then setSourceRGB 0 1 0   -- for green colour
                                 else setSourceRGB 1 0 0   -- for red colour
                              drawArcFilled pos space 0.3);
-     (Car _ (x,y) oldPath (r, g, b))-> (do 
+     (Car _ (x,y) _ oldPath (r, g, b))-> (do 
             setSourceRGB r g b       -- draw the cars with their colours
             let point = filterHouseAt staticC (x,y)
             if pos == (-1,-1)
@@ -419,9 +420,9 @@ drawStaticCell cellList space pos = do
                                                  nRoad;
             (Building _ _)              -> drawBuilding space pos;
             Empty                       -> return ();
-            (Car _ _ _ _)               -> error $"No cars allowed in"
+            (Car _ _ _ _ _)             -> error $"No cars allowed in"
                                                   ++" static City list!";
-            (Parse.Signal _ _ _ _ _ _)  -> error $"No signals allowed in"
+            (AStar.Signal _ _ _ _ _ _)  -> error $"No signals allowed in"
                                                   ++" static City list!"}
     where cell = getCell cellList pos
 
@@ -494,12 +495,12 @@ openFileDialog parentWindow fileOpenPathIO = do
     resp <- dialogRun dialog
     case resp of
         ResponseAccept      -> do filePath <- fileChooserGetFilename dialog
-                                  let path = case filePath of
+                                  let file = case filePath of
                                         (Just s   ) -> s
                                         Nothing     -> error $"Error on "
                                                        ++"ResponseAccept in "
                                                        ++"openFileDialog"
-                                  modifyIORef fileOpenPathIO (\_ -> path)
+                                  modifyIORef fileOpenPathIO (\_ -> file)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
         _                   -> return ()
@@ -521,12 +522,12 @@ saveFileDialog parentWindow fileSavePathIO = do
     resp <- dialogRun dialog
     case resp of
         ResponseAccept      -> do filePath <- fileChooserGetFilename dialog
-                                  let path = case filePath of
+                                  let file = case filePath of
                                         (Just s   ) -> s
                                         Nothing     -> error $"Error on "
                                                        ++"ResponseAccept in "
                                                        ++"openFileDialog"
-                                  modifyIORef fileSavePathIO (\_ -> path)
+                                  modifyIORef fileSavePathIO (\_ -> file)
         ResponseCancel      -> return ()
         ResponseDeleteEvent -> return ()
         _                   -> return ()

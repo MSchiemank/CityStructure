@@ -1,8 +1,6 @@
 module Run where
-import Parse
-import Data.List (nub, (\\), minimumBy)
-import Data.Tree
-
+import AStar
+import Data.List (nub, (\\))
 
 -- The nextStep is first to generate a new dynamic list, with the moving cars
 -- on the next point in the City and the switching signals.Out of this
@@ -13,7 +11,7 @@ nextStep city =
           height = getCityHeight city,
           static = getCityStatic city,
           dynamic = allCarsWithoutTwoOnOneCell}
-    
+
     where 
           dyn = getCityDynamic city
           stat = getCityStatic city
@@ -76,7 +74,7 @@ whoIsTheRightOfTheCar car1 car2 =
                 else showRight (xCar1, yCar1-1) car1 car2
     
     where 
-          oldPosFirstCar = (\(Car _ _ old _) -> head $reverse old) $snd car1
+          oldPosFirstCar = (\(Car _ _ _ old _) -> head $reverse old) $snd car1
           posCar1 = fst car1
           xCar1 = fst posCar1
           yCar1 = snd posCar1
@@ -85,26 +83,30 @@ whoIsTheRightOfTheCar car1 car2 =
 
 
 
--- shows on the right side of a car, if there is another car.
-showRight :: Pos -> (Pos, Cell) 
-            -> (Pos, Cell) -> (Pos, Cell)
+-- looks on the right side of a car, if there is another car.
+showRight :: Pos         -> 
+             (Pos, Cell) -> 
+             (Pos, Cell) -> 
+             (Pos, Cell)
 showRight rightPos car1 car2 =
     if rightPos==oldPosCar2
        then (returnOldPos car1, remLastPos car1)
        else car1
     
     where 
-          oldPosCar2 = (\(Car _ _ old _) -> head $reverse old) $snd car2
+          oldPosCar2 = (\(Car _ _ _ old _) -> head $reverse old) $snd car2
 
 
 
 returnOldPos :: (Pos,Cell) -> Pos
-returnOldPos (_,Car _ _ oldPath _) = head $reverse oldPath
+returnOldPos (_,Car _ _ _ oldPath _) = head $reverse oldPath
 returnOldPos _ = error "Must be a car cell in returnOldPos!"
 
 remLastPos :: (Pos,Cell) -> Cell
-remLastPos (_,Car idC destC oldPath col) =
-    Car idC destC (reverse $ tail $ reverse oldPath) col
+remLastPos (position,Car idC destC pathToGo oldPath col) =
+    Car idC destC newPathToGo newOldPath col
+    where newOldPath = reverse $ tail $ reverse oldPath
+          newPathToGo = position:pathToGo
 remLastPos _ = error "Must be a car cell in remLastPos!"
 
 
@@ -121,7 +123,7 @@ nextCarsAndSignals :: [[Cell]] -> [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
 nextCarsAndSignals staticC dynamicC (pos, cell) =
     case cell of 
          { (Signal _ _ _ _ _ _) -> signalStatus (pos, cell);
-           (Car _ _ _ _)        -> checkSignal staticC dynamicC pos cell;
+           (Car _ _ _ _ _)      -> checkSignal staticC dynamicC pos cell;
            (_)                  -> error $"Must be a signal or car cell in"
                                           ++" nextCarsAndSignals!"
          }
@@ -173,20 +175,21 @@ checkSignal stat dyn (x,y) cell =
                                  ) allSignals
 
 
-getCell :: [[Cell]] -> (Pos) -> Cell
-getCell cell (x,y) = (cell!!(y-1))!!(x-1)
-
-
 
 -- Remove the car, if its on the destination or in the neighborhood.
 carStep :: [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell -> (Pos,Cell)
-carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) = 
+carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathToGo pathOld col) = 
     if (xa,ya) == (xd,yd) || 
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
        then
          --car is on his destination
-         ((-1,-1), Car {ident=0, dest=(xd,yd), iWasThere=[], colour=col})
+         ((-1,-1), Car {ident=0, 
+                        dest=(xd,yd), 
+                        path=[], 
+                        iWasThere=[], 
+                        colour=col}
+         )
        else if length carOnNext > 0    --if a car is on the next field
         --checks, if a deadlock occures for 5 times
                then if oldCell == (xa,ya) && length carOnOtherNext <= 0
@@ -194,20 +197,33 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
                 -- field is not occupied and goes on.
                        then (otherNext, Car idC 
                                             (xd,yd) 
+                                            []
                                             (pathOld++[(xa,ya)])
                                             col)
                 --else it will remain on the current place
-                       else ((xa,ya), Car idC
-                                          (xd,yd)
-                                          (pathOld++[(xa,ya)])
-                                          col)
+                       else if null pathToGo
+                            then ((xa,ya), Car idC
+                                               (xd,yd)
+                                               (next:(path car))
+                                               (pathOld++[(xa,ya)])
+                                               col)
+                            else ((xa,ya), Car idC
+                                               (xd,yd)
+                                               pathToGo
+                                               (pathOld++[(xa,ya)])
+                                               col)
                else --otherwise it will move on
-                    (next, Car idC 
-                               (xd,yd) 
+                    (next, car) {-(next, Car idC 
+                               (xd,yd)
+                               (pathToGo\\[next])
                                newOldNext
-                               col)
+                               col)-}
     
-    where next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) (xa,ya)
+    where --next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) (xa,ya)
+          (next, car) = nextField staticL 
+                          (getCell staticL (xa,ya)) 
+                          (xa,ya) 
+                          (Car idC (xd,yd) pathToGo pathOld col)
           nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
           otherNext = if length nextRoadFromCell >1
                          then head $nextRoadFromCell\\[next]
@@ -219,7 +235,7 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathOld col) =
                         else (-1,-1)
           -- remove (xa,ya) for the first time it 
           -- appears and put it at the end of the list!
-          newOldNext = nub ((pathOld\\[(xa,ya)])++[(xa,ya)])
+          --newOldNext = nub ((pathOld\\[(xa,ya)])++[(xa,ya)])
 
                             
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
@@ -228,82 +244,31 @@ carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
 ---------------------------- < pathfinding > ----------------------------------
 -- with the a-star algorithm.
-nextField :: [[Cell]] -> Cell -> Pos -> Pos -> Pos
-nextField staticC (Road _ _ next) destination position = 
+nextField :: [[Cell]] -> Cell -> Pos -> Cell -> (Pos, Cell)
+nextField staticC 
+          (Road _ _ next) 
+          position 
+          (Car idC destination pathToGo pathOld col) = 
     if (length next > 1)
-        then if length path > 1 
-                then head $tail $reverse path
-                else head path
-        else head next
-    where path = aStar [(0, (Node position []))] [] destination staticC
+        then if null pathToGo
+                then if length pathAStar > 1 
+                        then (head route, 
+                              Car idC destination (tail route) newOldNext col)
+                        else (head pathAStar, 
+                              Car idC destination [] newOldNext col)
+                else (head pathToGo,
+                      Car idC destination (tail pathToGo) newOldNext col)
+        else (head next, 
+              Car idC
+                  destination 
+                  (pathToGo\\[head next]) 
+                  newOldNext 
+                  col
+             )
+    where pathAStar = aStar position destination staticC
+          route = tail $reverse pathAStar
+          newOldNext = nub ((pathOld\\[position])++[position])
 nextField _ _ _ _ = error "Must be a road cell in nextField!"
-
-
-aStar :: [(Int, Tree Pos)] -> [Pos] -> Pos -> [[Cell]] -> [Pos]
-aStar [] _ _ _ = error "No path found for one car!"
-aStar openList closedList destination staticC = 
-    let (i, currentNode) = minimumBy orderTreeList openList
-        newOpenList = openList\\[(i,currentNode)]
-        newClosedList = closedList++[rootLabel currentNode]
-    in 
-    if destination == (rootLabel currentNode)
-       then buildPath currentNode
-       else aStar (expandNode (i, currentNode)
-                              newOpenList
-                              newClosedList
-                              staticC
-                              destination) 
-                  newClosedList
-                  destination
-                  staticC
-
-
-expandNode :: (Int, Tree Pos)   ->
-              [(Int, Tree Pos)] -> 
-              [Pos]             -> 
-              [[Cell]]          -> 
-              Pos               ->
-              [(Int, Tree Pos)]
-expandNode (g,node) openList closedList staticC destination = 
-    nub $concat $map (\pos -> do
-        let nodeInList = filter (\(_, Node posN _) -> posN==pos)
-                                openList
-            newOpenList = openList\\nodeInList
-            (fOld,_) = head nodeInList
-        if elem pos closedList
-            then openList
-            else if not (null $nodeInList)
-                    then if f pos > fOld
-                         then openList
-                         else newOpenList++[(f pos,Node pos [node])]
-                    else openList++[(f pos,Node pos [node])]
-        )
-        successors
-    
-    where position = rootLabel node
-          successors = nextRoad $getCell staticC position
-          f :: Pos -> Int
-          f pos = g+1+heuristic pos destination
-
-    
-
-heuristic :: Pos -> Pos -> Int
-heuristic (xa,ya) (xd,yd) = 
-    (if xd<xa then xa-xd else xd-xa)+(if yd<ya then ya-yd else yd-ya)
-
-buildPath :: Tree Pos -> [Pos]
-buildPath (Node destination []) = [destination]
-buildPath node =
-    destination:(buildPath (head $ subForest node))
-    where destination = rootLabel node
-
-
-orderTreeList :: (Ord a) => (a, b) -> (a, b) -> Ordering
-orderTreeList (i1, _) (i2, _)
-    | i1 < i2 = LT
-    | i1 == i2 = EQ
-    | i1 > i2 = GT
-orderTreeList _ _ = error "Error in orderTreeList"
 
 
 -------------------------------------------------------------------------------

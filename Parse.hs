@@ -1,53 +1,11 @@
 module Parse where
-
+import AStar
 import Data.List (isInfixOf, nub, (\\), sort, intersect)
 import Data.IORef
 import Char (isSpace)
 import Control.Monad.Trans (liftIO)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Random (randomR, StdGen)
-
---Datatype setting
-data Cell = Road    { ident         :: Int,
-                      name          :: String,
-                      nextRoad      :: [Pos]}
-          | Building{ ident         :: Int,
-                      name          :: String}
-          | Signal  { ident         :: Int,
-                      status        :: Bool,
-                      stepToWait    :: Int,
-                      remainingSteps:: Int,
-                      workWith      :: [Pos],
-                      against       :: [Pos]}
-          | Car     { ident         :: Int,
-                      dest          :: Pos,
-                      path          :: [Pos],
-                      iWasThere     :: [Pos],
-                      colour        :: RGB}
-          | Empty {}
-     deriving (Eq, Show)
-
-type Pos = (Int, Int)
-type RGB = (Double, Double, Double)
-
-data City = City { width              :: Int,
-                   height             :: Int,
-                   static             :: [[Cell]],
-                   dynamic            :: [(Pos,Cell)]}
-     deriving (Eq, Show)
-
---returns the contents of the structure
-getCityStatic :: City -> [[Cell]]
-getCityStatic (City _ _ stat _) = stat
-
-getCityDynamic :: City -> [(Pos,Cell)]
-getCityDynamic (City _ _ _ dyn) = dyn
-
-getCityWidth :: City -> Int
-getCityWidth (City widthCity _ _ _) = widthCity
-
-getCityHeight :: City -> Int
-getCityHeight (City _ heightCity _ _) = heightCity
 
 -------------------------------------------------------------------------------
 -- doInputString get a String from the function readFile, makes one String for
@@ -92,7 +50,8 @@ stringListBreakAt string char =
 parse :: IORef StdGen -> [String] -> City
 parse genIO s = do 
     buildCity cityW cityH (roadCells++buildingCells)
-                          (signalCells++carCells)
+                          signalCells
+                          carCells
     where cityW = getDim s "width="
           cityH = getDim s "height="
           roadCells = concat $map generateRoad (searchRows s ":Roads")
@@ -355,14 +314,19 @@ findStreetForBuilding build street idB =
 --  each row is a seperate list in the list. That guaranteed the x and y
 -- positions. And the second list is only a normal list, which comprised
 -- the cars and the signals with the current positions.
-buildCity :: Int -> Int -> [(Pos,Cell)] -> [(Pos,Cell)] -> City
-buildCity w h streetBuild sigCar = City { width            = w,
-                                          height           = h,
-                                          static           = sB,
-                                          dynamic          = sigCar}
+buildCity :: Int -> 
+             Int -> 
+             [(Pos,Cell)] ->
+             [(Pos,Cell)] ->
+             [(Pos,Cell)] ->
+             City
+buildCity w h streetBuild signals cars = 
+    City { width            = w,
+           height           = h,
+           static           = sB,
+           dynamic          = signals++cars}
     where sB = buildList w h streetBuild
-
-
+          
 --the rows jointed together
 buildList :: Int -> Int -> [(Pos,Cell)] -> [[Cell]]
 buildList w h cl = [buildListRow w i cl | i <- [1..h]]
@@ -418,7 +382,7 @@ buildDeadEnd list ((x,y), Road idR nameR roadPath) =
 
           -- filters out the cell, which point on the current cell
           notBeforeThisCell = 
-            filter (\(_, Road _ _ path) -> (head path) /= (x,y))
+            filter (\(_, Road _ _ pathNext) -> (head pathNext) /= (x,y))
                    onlyThisStreetCells 
 
           -- next must be only one cell
@@ -586,7 +550,7 @@ buildingString list =
 -- generates a string for the cars
 carString :: [(Pos,Cell)] -> String
 carString list = 
-    concat $ map (\(pos,Car idC _ destC _ _ ) -> show idC ++ ";" ++
+    concat $ map (\(pos,Car idC destC _ _ _ ) -> show idC ++ ";" ++
                                                  show pos ++ ";" ++ 
                                                  show destC ++ "\n") cars
     where 
