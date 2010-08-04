@@ -635,7 +635,7 @@ randomCity (cityWidth:cityHeight:hor:vert:
           buildings = unlines $
                 map (\(i,pos) -> show i ++ ";" ++ show i ++ ";" ++
                                  show pos) buildingTuple
-          cars = unlines $ getCars buildingTuple carsNumb genIO
+          cars = unlines $ getCars buildingTuple buildingTuple carsNumb genIO
 randomCity _ _ = error "The random city gets an unknwon list!"
 
 
@@ -724,18 +724,18 @@ getBuildings list i genIO = unsafePerformIO $ liftIO $ do
     return $(i,pos):getBuildings (list\\[pos]) (i-1) genIO
 
 
-getCars :: [(Int,Pos)] -> Int -> IORef StdGen -> [String]
-getCars _ 0 _ = []
-getCars list i genIO = unsafePerformIO $ liftIO$ do
+getCars :: [(Int,Pos)] -> [(Int,Pos)] -> Int -> IORef StdGen -> [String]
+getCars _ _ 0 _ = []
+getCars sourceList destList i genIO = unsafePerformIO $ liftIO$ do
     gen <- readIORef genIO
-    let (randPos, genNew) = randomR (0,(length list)-1) gen
-        posTup = list!!randPos
-        listNew = list\\[posTup]
+    let (randPos, genNew) = randomR (0,(length sourceList)-1) gen
+        posTup = sourceList!!randPos
+        listNewSource = sourceList\\[posTup]
         pos = "H"++(show $fst $posTup)
-        (randEnd, genNew2) = randomR (0,(length listNew)-1) genNew
-        endTup = listNew!!randEnd
+        (randEnd, genNew2) = randomR (0,(length destList)-1) genNew
+        endTup = destList!!randEnd
         end = "H"++(show $fst endTup)
         identCar = show i
     modifyIORef genIO (\_ -> genNew2)
     return $ (identCar++";"++pos++";"++end):
-            getCars (listNew\\[endTup]) (i-1) genIO
+            getCars listNewSource (destList\\[endTup]) (i-1) genIO
