@@ -213,13 +213,8 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathToGo pathOld col) =
                                                (pathOld++[(xa,ya)])
                                                col)
                else --otherwise it will move on
-                    (next, car) {-(next, Car idC 
-                               (xd,yd)
-                               (pathToGo\\[next])
-                               newOldNext
-                               col)-}
-    
-    where --next = nextField staticL (getCell staticL (xa,ya)) (xd,yd) (xa,ya)
+                    (next, car)     
+    where 
           (next, car) = nextField staticL 
                           (getCell staticL (xa,ya)) 
                           (xa,ya) 
@@ -233,10 +228,6 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathToGo pathOld col) =
           oldCell = if (length pathOld) > 4
                         then (reverse pathOld)!!4
                         else (-1,-1)
-          -- remove (xa,ya) for the first time it 
-          -- appears and put it at the end of the list!
-          --newOldNext = nub ((pathOld\\[(xa,ya)])++[(xa,ya)])
-
                             
 carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
@@ -267,6 +258,8 @@ nextField staticC
              )
     where pathAStar = aStar position destination staticC
           route = tail $reverse pathAStar
+          -- remove (position) for the first time it 
+          -- appears and put it at the end of the list!
           newOldNext = nub ((pathOld\\[position])++[position])
 nextField _ _ _ _ = error "Must be a road cell in nextField!"
 
