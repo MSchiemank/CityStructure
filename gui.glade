@@ -224,12 +224,14 @@
             <property name="visible">True</property>
             <property name="spacing">2</property>
             <child>
-              <widget class="GtkHBox" id="hbox1">
+              <widget class="GtkHBox" id="hbox5">
                 <property name="visible">True</property>
+                <property name="spacing">5</property>
                 <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="width">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">width	</property>
                   </widget>
                   <packing>
@@ -244,25 +246,30 @@
                     <property name="adjustment">4 4 100 1 0 0</property>
                   </widget>
                   <packing>
+                    <property name="fill">False</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
-                <child>
-                  <widget class="GtkVSeparator" id="vseparator1">
-                    <property name="visible">True</property>
-                  </widget>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkHBox" id="hbox6">
+                <property name="visible">True</property>
+                <property name="spacing">5</property>
+                <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="height">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">height</property>
                   </widget>
                   <packing>
-                    <property name="position">3</property>
+                    <property name="position">0</property>
                   </packing>
                 </child>
                 <child>
@@ -273,31 +280,70 @@
                     <property name="adjustment">4 4 100 1 0 0</property>
                   </widget>
                   <packing>
-                    <property name="position">4</property>
+                    <property name="fill">False</property>
+                    <property name="position">1</property>
                   </packing>
                 </child>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">0</property>
-              </packing>
-            </child>
-            <child>
-              <widget class="GtkHSeparator" id="hseparator2">
-                <property name="visible">True</property>
-              </widget>
-              <packing>
-                <property name="expand">False</property>
+                <property name="fill">False</property>
                 <property name="position">1</property>
               </packing>
             </child>
             <child>
-              <widget class="GtkHBox" id="hbox2">
+              <widget class="GtkHSeparator" id="hseparator6">
                 <property name="visible">True</property>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkHBox" id="hbox8">
+                <property name="visible">True</property>
+                <property name="spacing">5</property>
+                <property name="homogeneous">True</property>
+                <child>
+                  <widget class="GtkLabel" id="label3">
+                    <property name="visible">True</property>
+                    <property name="xalign">0</property>
+                    <property name="label" translatable="yes">vertical streets</property>
+                  </widget>
+                  <packing>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <widget class="GtkSpinButton" id="vertStreets">
+                    <property name="visible">True</property>
+                    <property name="sensitive">False</property>
+                    <property name="can_focus">True</property>
+                    <property name="invisible_char">&#x25CF;</property>
+                    <property name="adjustment">1 1 100 1 0 0</property>
+                  </widget>
+                  <packing>
+                    <property name="fill">False</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkHBox" id="hbox7">
+                <property name="visible">True</property>
+                <property name="spacing">5</property>
                 <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="label2">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">horizontal streets </property>
                   </widget>
                   <packing>
@@ -313,61 +359,35 @@
                     <property name="adjustment">1 1 100 1 0 0</property>
                   </widget>
                   <packing>
+                    <property name="fill">False</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
-                <child>
-                  <widget class="GtkVSeparator" id="vseparator2">
-                    <property name="visible">True</property>
-                  </widget>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
-                <child>
-                  <widget class="GtkLabel" id="label3">
-                    <property name="visible">True</property>
-                    <property name="label" translatable="yes">vertical streets</property>
-                  </widget>
-                  <packing>
-                    <property name="position">3</property>
-                  </packing>
-                </child>
-                <child>
-                  <widget class="GtkSpinButton" id="vertStreets">
-                    <property name="visible">True</property>
-                    <property name="sensitive">False</property>
-                    <property name="can_focus">True</property>
-                    <property name="invisible_char">&#x25CF;</property>
-                    <property name="adjustment">1 1 100 1 0 0</property>
-                  </widget>
-                  <packing>
-                    <property name="position">4</property>
-                  </packing>
-                </child>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">2</property>
+                <property name="fill">False</property>
+                <property name="position">4</property>
               </packing>
             </child>
             <child>
-              <widget class="GtkHSeparator" id="hseparator3">
+              <widget class="GtkHSeparator" id="hseparator8">
                 <property name="visible">True</property>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">3</property>
+                <property name="position">5</property>
               </packing>
             </child>
             <child>
-              <widget class="GtkHBox" id="hbox4">
+              <widget class="GtkHBox" id="hbox9">
                 <property name="visible">True</property>
+                <property name="spacing">5</property>
                 <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="label5">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">buildings</property>
                   </widget>
                   <packing>
@@ -383,25 +403,30 @@
                     <property name="adjustment">0 0 100 1 0 0</property>
                   </widget>
                   <packing>
+                    <property name="fill">False</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
-                <child>
-                  <widget class="GtkVSeparator" id="vseparator5">
-                    <property name="visible">True</property>
-                  </widget>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">6</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkHBox" id="hbox10">
+                <property name="visible">True</property>
+                <property name="spacing">5</property>
+                <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="label6">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">cars</property>
                   </widget>
                   <packing>
-                    <property name="position">3</property>
+                    <property name="position">0</property>
                   </packing>
                 </child>
                 <child>
@@ -413,32 +438,37 @@
                     <property name="adjustment">0 0 100 1 0 0</property>
                   </widget>
                   <packing>
-                    <property name="position">4</property>
+                    <property name="fill">False</property>
+                    <property name="position">1</property>
                   </packing>
                 </child>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">4</property>
+                <property name="fill">False</property>
+                <property name="position">7</property>
               </packing>
             </child>
             <child>
-              <widget class="GtkHSeparator" id="hseparator5">
+              <widget class="GtkHSeparator" id="hseparator3">
                 <property name="visible">True</property>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">5</property>
+                <property name="position">8</property>
               </packing>
             </child>
             <child>
-              <widget class="GtkHBox" id="hbox3">
+              <widget class="GtkHBox" id="hbox11">
                 <property name="visible">True</property>
+                <property name="spacing">5</property>
                 <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="label4">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes"> signals</property>
+                    <property name="xalign">0</property>
+                    <property name="label" translatable="yes">signals</property>
+                    <property name="justify">fill</property>
                   </widget>
                   <packing>
                     <property name="position">0</property>
@@ -453,25 +483,30 @@
                     <property name="adjustment">0 0 1 1 0 0</property>
                   </widget>
                   <packing>
+                    <property name="fill">False</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
-                <child>
-                  <widget class="GtkVSeparator" id="vseparator3">
-                    <property name="visible">True</property>
-                  </widget>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="position">2</property>
-                  </packing>
-                </child>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">9</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkHBox" id="hbox12">
+                <property name="visible">True</property>
+                <property name="spacing">5</property>
+                <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="min. length">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">min. length	</property>
                   </widget>
                   <packing>
-                    <property name="position">3</property>
+                    <property name="position">0</property>
                   </packing>
                 </child>
                 <child>
@@ -483,25 +518,30 @@
                     <property name="adjustment">5 2 50 1 0 0</property>
                   </widget>
                   <packing>
-                    <property name="position">4</property>
+                    <property name="fill">False</property>
+                    <property name="position">1</property>
                   </packing>
                 </child>
-                <child>
-                  <widget class="GtkVSeparator" id="vseparator4">
-                    <property name="visible">True</property>
-                  </widget>
-                  <packing>
-                    <property name="expand">False</property>
-                    <property name="position">5</property>
-                  </packing>
-                </child>
+              </widget>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+                <property name="position">10</property>
+              </packing>
+            </child>
+            <child>
+              <widget class="GtkHBox" id="hbox13">
+                <property name="visible">True</property>
+                <property name="spacing">5</property>
+                <property name="homogeneous">True</property>
                 <child>
                   <widget class="GtkLabel" id="max. length">
                     <property name="visible">True</property>
+                    <property name="xalign">0</property>
                     <property name="label" translatable="yes">max. length</property>
                   </widget>
                   <packing>
-                    <property name="position">6</property>
+                    <property name="position">0</property>
                   </packing>
                 </child>
                 <child>
@@ -513,26 +553,30 @@
                     <property name="adjustment">10 2 50 1 0 0</property>
                   </widget>
                   <packing>
-                    <property name="position">7</property>
+                    <property name="fill">False</property>
+                    <property name="position">1</property>
                   </packing>
                 </child>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">6</property>
+                <property name="fill">False</property>
+                <property name="position">11</property>
               </packing>
             </child>
             <child>
-              <widget class="GtkHSeparator" id="hseparator4">
+              <widget class="GtkHSeparator" id="hseparator9">
                 <property name="visible">True</property>
               </widget>
               <packing>
                 <property name="expand">False</property>
-                <property name="position">7</property>
+                <property name="position">12</property>
               </packing>
             </child>
           </widget>
           <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
             <property name="position">1</property>
           </packing>
         </child>
