@@ -566,13 +566,6 @@ showRandDialog xml randValIO = do
 -- setts the value and the sensitivity
     mapM_ (flip widgetSetSensitivity True) 
         [widthSpin,heightSpin,signals]
-{-    mapM_ (flip widgetSetSensitivity False) 
-        [horStreets,vertStreets,signals,buildings,cars]
-    mapM_ (flip spinButtonSetValue 0) [signals,buildings,cars]
-    mapM_ (flip spinButtonSetValue 1) 
-        [horStreets,vertStreets]
-    mapM_ (flip spinButtonSetValue 4) [widthSpin,heightSpin]-}
-
     widgetShow randDialog
 
 -- the events  
