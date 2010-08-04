@@ -120,7 +120,7 @@ main = do
                                 mapM_ (flip widgetSetSensitivity True) 
                                     [start,step,saveButton]
                                 -- city will be painted
-                                update grid drawarea cityIO)
+                                widgetQueueDraw drawarea)--update grid drawarea cityIO)
 
 
 
@@ -157,7 +157,7 @@ main = do
                            widgetSetSizeRequest drawarea w h
                            mapM_ (flip widgetSetSensitivity True) 
                                [start,step,saveButton]
-                           update grid drawarea cityIO
+                           widgetQueueDraw drawarea
                    else return ()
                       
 
@@ -174,7 +174,7 @@ main = do
                 modifyIORef autoIO (\_ -> False)
                 mapM_ (flip widgetSetSensitivity False) [reset,stop]
                 mapM_ (flip widgetSetSensitivity True) [start,step]
-                update grid drawarea cityIO
+                widgetQueueDraw drawarea
 
 -- starts the automatic by setting the autoIO flag
           _ <- onToolButtonClicked start $ do
@@ -196,7 +196,8 @@ main = do
                 modifyIORef cityIO nextStep
                 modifyIORef autoIO $ do return False
                 mapM_ (flip widgetSetSensitivity True) [reset]
-                update grid drawarea cityIO
+                widgetQueueDraw drawarea
+
 
 -- the modifying of the speedIO var           
           _ <- onValueSpinned speedButton $do
@@ -204,7 +205,7 @@ main = do
                 modifyIORef speedIO (return s2)
                         
 -- turns the gridd on and off
-          _ <- onToggled grid $ update grid drawarea cityIO
+          _ <- onToggled grid $ widgetQueueDraw drawarea
 
 
 -- for the first popup of the mainWindow 
@@ -212,7 +213,7 @@ main = do
 
 
 --starts a new IO thread for the automatic          
-          _ <- forkIO (thread cityIO speedIO autoIO drawarea grid)
+          _ <- forkIO (thread cityIO speedIO autoIO drawarea)
 
 
           _ <- onDestroy mainWindow mainQuit
@@ -228,9 +229,8 @@ thread :: IORef City  ->
           IORef Int   -> 
           IORef Bool  -> 
           DrawingArea -> 
-          CheckButton -> 
           IO ()
-thread cityIO speedIO autoIO drawarea grid = do
+thread cityIO speedIO autoIO drawarea = do
     --lift the IORef speedIO to int
     speed <- readIORef speedIO   
     --need more time to look?
@@ -246,28 +246,9 @@ thread cityIO speedIO autoIO drawarea grid = do
         else return ()
 
 
-    thread cityIO speedIO autoIO drawarea grid --Endless loop
+    thread cityIO speedIO autoIO drawarea    --Endless loop
 
 ---------------------------------------------------------------------
-
--- used when reset or step button are pushed. 
-update :: CheckButton -> DrawingArea -> IORef City -> IO ()
-update grid drawarea cityIO = do
-    gridAct <- toggleButtonGetActive grid 
-    (w,h) <- widgetGetSize drawarea
-    drw <- widgetGetDrawWindow drawarea
-    city <- readIORef cityIO
---    (fieldW,fieldH) <- size
-    let fieldW = getCityWidth city
-        fieldH = getCityHeight city
-        calcSpace = minimum [div w fieldW, div h fieldH]
-        space = if (fieldW > 0 && calcSpace>spaceCell)
-                 then calcSpace
-                 else spaceCell
-    renderWithDrawable drw $ cityDraw gridAct city space w h
-
-
-
 
 -- used only on expose event.
 exposeDraw :: DrawingArea -> 
@@ -693,7 +674,7 @@ showRandDialog xml randValIO = do
         valBuild <- spinButtonGetValueAsInt buildings
         spinButtonSetRange
             cars 0
-            $ realToFrac $div valBuild 2
+            $realToFrac $valBuild
         range <- spinButtonGetRange cars
         if snd range > 0
             then mapM_ (flip widgetSetSensitivity True)
