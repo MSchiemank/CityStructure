@@ -3,9 +3,9 @@ module Parse where
 import Data.List (isInfixOf, nub, (\\), sort, intersect)
 import Data.IORef
 import Char (isSpace)
-import System.Random (randomR, StdGen)
 import Control.Monad.Trans (liftIO)
 import System.IO.Unsafe (unsafePerformIO)
+import System.Random (randomR, StdGen)
 
 --Datatype setting
 data Cell = Road    { ident         :: Int,
@@ -21,6 +21,7 @@ data Cell = Road    { ident         :: Int,
                       against       :: [Pos]}
           | Car     { ident         :: Int,
                       dest          :: Pos,
+                      path          :: [Pos],
                       iWasThere     :: [Pos],
                       colour        :: RGB}
           | Empty {}
@@ -285,7 +286,7 @@ generateCarList :: [(Pos, Cell)] ->
                    (Pos, Cell)
 generateCarList building roads genIO x = do
     
-    (pos, (Car idR end [] col))
+    (pos, (Car idR end [] [] col))
     where a = stringListBreakAt x ';'
           idR = read (head a) ::Int
           pos = findPos building roads (a!!1)
@@ -585,13 +586,13 @@ buildingString list =
 -- generates a string for the cars
 carString :: [(Pos,Cell)] -> String
 carString list = 
-    concat $ map (\(pos,Car idC destC _ _ ) -> show idC ++ ";" ++
-                                               show pos ++ ";" ++ 
-                                               show destC ++ "\n") cars
+    concat $ map (\(pos,Car idC _ destC _ _ ) -> show idC ++ ";" ++
+                                                 show pos ++ ";" ++ 
+                                                 show destC ++ "\n") cars
     where 
           cars = filter (\(_,cell) -> case cell of
-                             {(Car _ _ _ _) -> True;
-                               _            -> False}) list
+                             {(Car _ _ _ _ _) -> True;
+                               _              -> False}) list
 
 
 
