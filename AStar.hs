@@ -69,6 +69,36 @@ createPosTuple s =
                                withoutBraketFst
 
 
+-- return the position of the house at the finishing point to show it with
+-- a circle. If no house is at that position, it will choose the destination 
+-- position itself!
+filterHouseAt :: [[Cell]] -> Pos -> Pos
+filterHouseAt staticC (x,y) = 
+    if null houses 
+       then (x,y)
+       else (\(position,_) -> position) $head houses
+    
+    where 
+          -- first we create a two dim array with the 
+          -- width :
+          lX = length $ staticC!!0
+          -- and the height;
+          lY = length staticC
+          array = [(x',y') |  y' <- [1..lY], x' <- [1..lX]]
+          -- now the static cells with the right positions
+          cell = zip array $concat staticC
+          -- we filter the four cells in the neighborhood, above, below,
+          -- left and right
+          bordering = filter (\(pos,_) -> pos==(x-1,y) ||
+                                          pos==(x+1,y) ||
+                                          pos==(x,y-1) ||
+                                          pos==(x,y+1)) cell
+          -- at last we filter out the building
+          houses = filter (\(_,bordCell) -> case bordCell of
+                            {Building _ _ -> True;
+                     _                    -> False}) bordering
+
+
 -------------------------- < aStar > ------------------------------------------
 -- the start for the aStat algorithm. It takes the starting position, the
 -- destination and the static cells of the city. 
