@@ -2,14 +2,16 @@ module Run where
 import AStar
 import Data.List (nub, (\\))
 
+
+-------------------------- < nextStep > ---------------------------------------
 -- The nextStep is first to generate a new dynamic list, with the moving cars
--- on the next point in the City and the switching signals.Out of this
+-- on the next position in the City and the switching signals. Out of this
 -- a new city will be generated.
 nextStep :: City -> City
 nextStep city = 
     City {width  = getCityWidth  city,
           height = getCityHeight city,
-          static = getCityStatic city,
+          static = stat,
           dynamic = allCarsWithoutTwoOnOneCell}
 
     where 
@@ -18,14 +20,19 @@ nextStep city =
           -- extract the cars with blinked house
           withoutCarsOnDest = filter (\(pos,_) -> pos /= (-1,-1)) dyn
           -- build the next way of all cars
-          allNextCars = map (nextCarsAndSignals stat
-                                                withoutCarsOnDest) 
+          allNextCars = map (nextCarsAndSignals
+                                 stat
+                                 withoutCarsOnDest) 
                             withoutCarsOnDest 
           -- cars with position (-1,-1) are on their destination and 
-          -- are filtered out
+          -- must be filtered out. If not, they don't appear in the dynamic
+          -- cells and the house won't blink. They will be filtered out in 
+          -- the carDoubleSearch function and causes an error.
           destCars = filter (\(pos,_) -> pos == (-1,-1)) allNextCars
           withDoubleCars = allNextCars\\destCars
-          --returns a list like that: [[pos1,pos2],[pos3],[pos4]...]
+          -- for each car it will be looked for other cars at the same position.
+          -- returns a list like that: [[(pos1,_,(pos2,_)],[(pos3,_)],[(pos4,_)]...]
+          -- the first position comprised two cars at it. 
           searchDoubleForEachCell =
             map (\(pos1,_) -> carDoubleSearch pos1) withDoubleCars 
 
@@ -40,16 +47,19 @@ nextStep city =
              concat noTwoCarsOnPlace ++ 
              noDoubleCarsInside ++
              destCars
+          -- reworked the "two on one position" cars to correctness
           noTwoCarsOnPlace = map rightBeforeLeft extractDouble
           noDoubleCarsInside = withDoubleCars\\(concat extractDouble) 
 
 
-                      
--- returns the old position of the first car on the cell, the other car
--- moves on will be used, if two cars are on one cell.
+
+-------------------------- < rightBeforeLeft > --------------------------------                      
+-- returns the old position of the car who comes from the left, the other car
+-- moves on. This will be used only, if two cars are on one cell.
 rightBeforeLeft :: [(Pos,Cell)] -> [(Pos,Cell)]
 rightBeforeLeft cars = 
     if (length cars)==2 
+        -- both cars show at the right side.
         then whoIsTheRightOfTheCar firstCar secondCar :
              whoIsTheRightOfTheCar secondCar firstCar : []
         else error $"More ore less than two cars on one roadcell"
@@ -58,7 +68,7 @@ rightBeforeLeft cars =
           firstCar = cars!!0
           secondCar = cars!!1
  
-
+-- this function looks for the car, which came from the left and rectified it.
 whoIsTheRightOfTheCar :: (Pos,Cell) -> (Pos,Cell) -> (Pos,Cell)
 whoIsTheRightOfTheCar car1 car2 = 
     -- first time is, that a car comes from the top
@@ -97,11 +107,14 @@ showRight rightPos car1 car2 =
           oldPosCar2 = (\(Car _ _ _ old _) -> head $reverse old) $snd car2
 
 
-
+-- returns the last position in oldPath
 returnOldPos :: (Pos,Cell) -> Pos
 returnOldPos (_,Car _ _ _ oldPath _) = head $reverse oldPath
 returnOldPos _ = error "Must be a car cell in returnOldPos!"
 
+
+-- it removes the last position from the oldPath and added the current position
+-- to the path list
 remLastPos :: (Pos,Cell) -> Cell
 remLastPos (position,Car idC destC pathToGo oldPath col) =
     Car idC destC newPathToGo newOldPath col
@@ -111,14 +124,8 @@ remLastPos _ = error "Must be a car cell in remLastPos!"
 
 
 
-
--- The cars look for the next field in the street cell. If there will
--- be 2 next fields, then it will look, which field is the nearest
--- to the target. There for are the wights. If the wight is equal, then
--- the next but one fields will be looked for. And this fields have also
--- a next field, then the wights for this will be created and the lower wight
--- will elected the real next step. After the car has reached the destination,
--- it will be removed from the city.
+-------------------------- < nextCarsAndSignals > -----------------------------
+-- It divides the signals and the cars
 nextCarsAndSignals :: [[Cell]] -> [(Pos,Cell)] -> (Pos,Cell) -> (Pos,Cell)
 nextCarsAndSignals staticC dynamicC (pos, cell) =
     case cell of 
@@ -129,7 +136,8 @@ nextCarsAndSignals staticC dynamicC (pos, cell) =
          }
 
 
--- switches the signals
+-- The signal status will be switched, if the time is over. 
+-- If the time is not over, then the time will be decreased.
 signalStatus :: (Pos,Cell) -> (Pos,Cell)
 signalStatus (pos, Signal idS stat step remainingStep wW wA) =
                 if remainingStep == 1
@@ -148,14 +156,19 @@ signalStatus (pos, Signal idS stat step remainingStep wW wA) =
 signalStatus (_,_) = error "Must be a signal cell in signalStatus!"
 
 
+-------------------------- < checkSignal > ------------------------------------
 -- Checks, if the next or the next but one roadpiece is a junction.
 -- If thats true, the status of the signal will be checked.
 -- If signal shows red, then the car will remain on the position, otherwise
 -- it will move forward.
 checkSignal ::  [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell ->  (Pos, Cell)
 checkSignal stat dyn (x,y) cell = 
+    -- looks at the next cell and if it's a junction, it will look for signals
     if length nextButOnePos > 1 
+       -- checks, if there is a signal
        then if length nearestSignal > 0
+               -- if signal shows green, the car moves on. Otherwise it
+               -- remain on the current place
                then if and $ map (\(_,(Signal _ statusS _ _ _ _)) -> statusS) 
                                  nearestSignal
                        then carStep stat dyn (x,y) cell
@@ -176,9 +189,11 @@ checkSignal stat dyn (x,y) cell =
 
 
 
--- Remove the car, if its on the destination or in the neighborhood.
+-- checks, if the destination is reached, if a car is on the next position,
+-- cleares deadlocks at a junction and moves the car.
 carStep :: [[Cell]] -> [(Pos,Cell)] -> Pos -> Cell -> (Pos,Cell)
 carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathToGo pathOld col) = 
+    -- Remove the car, if its on the destination or in the neighborhood.
     if (xa,ya) == (xd,yd) || 
        xa==xd && (ya==yd-1 || ya==yd+1) || 
        ya==yd && (xa==xd-1 || xa==xd+1)
@@ -190,18 +205,22 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathToGo pathOld col) =
                         iWasThere=[], 
                         colour=col}
          )
-       else if length carOnNext > 0    --if a car is on the next field
-        --checks, if a deadlock occures for 5 times
+       --if a car is on the next field
+       else if length carOnNext > 0    
+               -- checks, if a deadlock occures for 5 times
+               -- looks, if the car has waited 5 times and if the otherNext
+               -- field is not occupied. If that's true the car move
+               -- the other way and the pathToGo will be cleared.
                then if oldCell == (xa,ya) && length carOnOtherNext <= 0
-                -- shows, if it has waited 5 times and if the otherNext
-                -- field is not occupied and goes on.
+                
                        then (otherNext, Car idC 
                                             (xd,yd) 
                                             []
                                             (pathOld++[(xa,ya)])
                                             col)
-                --else it will remain on the current place
+               --else it will remain on the current place
                        else if null pathToGo
+                            -- if pathToGo is empty, then find a path
                             then ((xa,ya), Car idC
                                                (xd,yd)
                                                (next:(path car))
@@ -212,19 +231,25 @@ carStep staticL dyn (xa,ya) (Car idC (xd,yd) pathToGo pathOld col) =
                                                pathToGo
                                                (pathOld++[(xa,ya)])
                                                col)
-               else --otherwise it will move on
-                    (next, car)     
+            --otherwise it will move on
+               else (next, car)     
     where 
+          -- the next step for the car
           (next, car) = nextField staticL 
                           (getCell staticL (xa,ya)) 
                           (xa,ya) 
                           (Car idC (xd,yd) pathToGo pathOld col)
+          -- the nextRoad list from the cell pointed by (xa,ya)
           nextRoadFromCell = nextRoad (getCell staticL (xa,ya))
+          -- the next way, if first way is blocked and if it exists
           otherNext = if length nextRoadFromCell >1
                          then head $nextRoadFromCell\\[next]
                          else next
+          -- filters a car, if there is one on the next position
           carOnNext = filter (\(pos,_) -> pos==next) dyn
+          -- the same for the other way
           carOnOtherNext = filter (\(pos,_) -> pos==otherNext) dyn
+          -- looks at the fourth position from behind of the old path list
           oldCell = if (length pathOld) > 4
                         then (reverse pathOld)!!4
                         else (-1,-1)
@@ -233,15 +258,18 @@ carStep _ _ _ _ = error "Must be a car cell in carStep!"
 
 
 
----------------------------- < pathfinding > ----------------------------------
--- with the a-star algorithm.
+-- uses the a-star algorithm if the next way list is empty and if
+-- there is more than one way to go from current possition.
 nextField :: [[Cell]] -> Cell -> Pos -> Cell -> (Pos, Cell)
 nextField staticC 
           (Road _ _ next) 
           position 
           (Car idC destination pathToGo pathOld col) = 
+    -- checks if it exists more then one next way
     if (length next > 1)
+        -- checks if there exists a path to the destination
         then if null pathToGo
+            -- if no path exists, then a-star will be used
                 then if length pathAStar > 1 
                         then (head route, 
                               Car idC destination (tail route) newOldNext col)
@@ -249,6 +277,7 @@ nextField staticC
                               Car idC destination [] newOldNext col)
                 else (head pathToGo,
                       Car idC destination (tail pathToGo) newOldNext col)
+        -- only one next way exists and the car move this way
         else (head next, 
               Car idC
                   destination 
@@ -257,35 +286,12 @@ nextField staticC
                   col
              )
     where pathAStar = aStar position destination staticC
+          -- the path from a-star is from the destination to the current
+          -- position and with the current position at the end.
           route = tail $reverse pathAStar
           -- remove (position) for the first time it 
           -- appears and put it at the end of the list!
           newOldNext = nub ((pathOld\\[position])++[position])
 nextField _ _ _ _ = error "Must be a road cell in nextField!"
-
-
--------------------------------------------------------------------------------
-
--- the house at the finishing point to show it with a circle
--- If no house is at that position, it will choose the destination 
--- position itself!
-filterHouseAt :: [[Cell]] -> Pos -> Pos
-filterHouseAt staticC (x,y) = 
-    if null houses 
-       then (x,y)
-       else (\(position,_) -> position) $head houses
-    
-    where 
-          lX = length $ staticC!!0
-          lY = length staticC
-          array = [(x',y') |  y' <- [1..lY], x' <- [1..lX]]
-          cell = zip array $concat staticC
-          bordering = filter (\(pos,_) -> pos==(x-1,y) ||
-                                          pos==(x+1,y) ||
-                                          pos==(x,y-1) ||
-                                          pos==(x,y+1)) cell
-          houses = filter (\(_,bordCell) -> case bordCell of
-                            {Building _ _ -> True;
-                     _                    -> False}) bordering
 
 
